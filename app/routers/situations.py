@@ -1,10 +1,15 @@
-from fastapi import APIRouter, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
+from app.core.dependencies import get_current_user
 from app.models.patient import Situation, SituationAction
 from app.schemas.common import SuccessResponse
 from app.schemas.situation import ActionRequest, ActionResponse, ActiveSituationsData, SituationOut
 
-router = APIRouter(prefix="/api/v1/situations", tags=["situations"])
+router = APIRouter(
+    prefix="/api/v1/situations",
+    tags=["situations"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get("/active", response_model=SuccessResponse[ActiveSituationsData])

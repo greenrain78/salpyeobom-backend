@@ -32,41 +32,41 @@ async def _make_patient(pid: str = "user_1001", **kwargs) -> Patient:
 # GET /api/v1/patients
 # ---------------------------------------------------------------------------
 
-async def test_list_patients_empty(client: AsyncClient):
-    res = await client.get("/api/v1/patients")
+async def test_list_patients_empty(auth_client: AsyncClient):
+    res = await auth_client.get("/api/v1/patients")
     assert res.status_code == 200
     data = res.json()["data"]
     assert data["total_count"] == 0
     assert data["patients"] == []
 
 
-async def test_list_patients_pagination(client: AsyncClient):
+async def test_list_patients_pagination(auth_client: AsyncClient):
     for i in range(5):
         await _make_patient(pid=f"p{i}", name=f"환자{i}")
 
-    res = await client.get("/api/v1/patients", params={"page": 1, "limit": 3})
+    res = await auth_client.get("/api/v1/patients", params={"page": 1, "limit": 3})
     data = res.json()["data"]
     assert data["total_count"] == 5
     assert data["total_pages"] == 2
     assert len(data["patients"]) == 3
 
-    res2 = await client.get("/api/v1/patients", params={"page": 2, "limit": 3})
+    res2 = await auth_client.get("/api/v1/patients", params={"page": 2, "limit": 3})
     assert len(res2.json()["data"]["patients"]) == 2
 
 
-async def test_list_patients_search(client: AsyncClient):
+async def test_list_patients_search(auth_client: AsyncClient):
     await _make_patient(pid="p1", name="김순자")
     await _make_patient(pid="p2", name="최갑수")
 
-    res = await client.get("/api/v1/patients", params={"search_name": "김"})
+    res = await auth_client.get("/api/v1/patients", params={"search_name": "김"})
     data = res.json()["data"]
     assert data["total_count"] == 1
     assert data["patients"][0]["name"] == "김순자"
 
 
-async def test_list_patients_fields(client: AsyncClient):
+async def test_list_patients_fields(auth_client: AsyncClient):
     await _make_patient()
-    item = (await client.get("/api/v1/patients")).json()["data"]["patients"][0]
+    item = (await auth_client.get("/api/v1/patients")).json()["data"]["patients"][0]
     assert item["patient_id"] == "user_1001"
     assert item["manager_name"] == "김재섭"
     assert item["cross_verification_level"] == "초고위험"
@@ -77,9 +77,9 @@ async def test_list_patients_fields(client: AsyncClient):
 # GET /api/v1/patients/{patient_id}/details
 # ---------------------------------------------------------------------------
 
-async def test_patient_details_success(client: AsyncClient):
+async def test_patient_details_success(auth_client: AsyncClient):
     await _make_patient()
-    res = await client.get("/api/v1/patients/user_1001/details")
+    res = await auth_client.get("/api/v1/patients/user_1001/details")
     assert res.status_code == 200
     data = res.json()["data"]
     assert data["name"] == "김순자"
@@ -88,8 +88,8 @@ async def test_patient_details_success(client: AsyncClient):
     assert data["administration"]["diseases"] == ["고혈압", "초기 치매"]
 
 
-async def test_patient_details_not_found(client: AsyncClient):
-    res = await client.get("/api/v1/patients/ghost/details")
+async def test_patient_details_not_found(auth_client: AsyncClient):
+    res = await auth_client.get("/api/v1/patients/ghost/details")
     assert res.status_code == 404
 
 
@@ -97,7 +97,7 @@ async def test_patient_details_not_found(client: AsyncClient):
 # GET /api/v1/patients/{patient_id}/timeseries
 # ---------------------------------------------------------------------------
 
-async def test_timeseries_success(client: AsyncClient):
+async def test_timeseries_success(auth_client: AsyncClient):
     patient = await _make_patient()
     today = date.today()
     await TimeseriesModel.bulk_create([
@@ -106,7 +106,7 @@ async def test_timeseries_success(client: AsyncClient):
         TimeseriesModel(patient=patient, date=today, mae_score=3.42, is_anomaly=True),
     ])
 
-    res = await client.get("/api/v1/patients/user_1001/timeseries")
+    res = await auth_client.get("/api/v1/patients/user_1001/timeseries")
     assert res.status_code == 200
     data = res.json()["data"]
     assert data["patient_id"] == "user_1001"
@@ -115,7 +115,7 @@ async def test_timeseries_success(client: AsyncClient):
     assert data["timeseries"][-1]["is_anomaly"] is True
 
 
-async def test_timeseries_days_filter(client: AsyncClient):
+async def test_timeseries_days_filter(auth_client: AsyncClient):
     patient = await _make_patient()
     today = date.today()
     await TimeseriesModel.bulk_create([
@@ -123,17 +123,17 @@ async def test_timeseries_days_filter(client: AsyncClient):
         TimeseriesModel(patient=patient, date=today, mae_score=1.5, is_anomaly=False),
     ])
 
-    res = await client.get("/api/v1/patients/user_1001/timeseries", params={"days": 7})
+    res = await auth_client.get("/api/v1/patients/user_1001/timeseries", params={"days": 7})
     assert len(res.json()["data"]["timeseries"]) == 1
 
 
-async def test_timeseries_new_patient_returns_empty(client: AsyncClient):
+async def test_timeseries_new_patient_returns_empty(auth_client: AsyncClient):
     await _make_patient()
-    res = await client.get("/api/v1/patients/user_1001/timeseries")
+    res = await auth_client.get("/api/v1/patients/user_1001/timeseries")
     assert res.status_code == 200
     assert res.json()["data"]["timeseries"] == []
 
 
-async def test_timeseries_not_found(client: AsyncClient):
-    res = await client.get("/api/v1/patients/ghost/timeseries")
+async def test_timeseries_not_found(auth_client: AsyncClient):
+    res = await auth_client.get("/api/v1/patients/ghost/timeseries")
     assert res.status_code == 404

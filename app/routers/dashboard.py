@@ -1,10 +1,15 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.core.dependencies import get_current_user
 from app.models.patient import Patient
 from app.schemas.common import SuccessResponse
 from app.schemas.dashboard import DashboardSummary
 
-router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
+router = APIRouter(
+    prefix="/api/v1/dashboard",
+    tags=["dashboard"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get("/summary", response_model=SuccessResponse[DashboardSummary])

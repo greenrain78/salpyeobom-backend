@@ -37,7 +37,7 @@ async def test_register_duplicate_username(client: AsyncClient):
         json={**VALID_USER, "email": "other@example.com"},
     )
     assert res.status_code == 409
-    assert "Username" in res.json()["detail"]
+    assert "Username" in res.json()["message"]
 
 
 async def test_register_duplicate_email(client: AsyncClient):
@@ -47,7 +47,7 @@ async def test_register_duplicate_email(client: AsyncClient):
         json={**VALID_USER, "username": "otheruser"},
     )
     assert res.status_code == 409
-    assert "Email" in res.json()["detail"]
+    assert "Email" in res.json()["message"]
 
 
 async def test_register_password_too_short(client: AsyncClient):

@@ -1,7 +1,8 @@
 import math
 from datetime import date, timedelta
 
-from fastapi import APIRouter, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from app.core.dependencies import get_current_user
 
 from app.models.patient import Patient
 from app.models.patient import TimeseriesData as TimeseriesModel
@@ -16,7 +17,11 @@ from app.schemas.patient_monitoring import (
     TimeseriesPoint,
 )
 
-router = APIRouter(prefix="/api/v1/patients", tags=["patients"])
+router = APIRouter(
+    prefix="/api/v1/patients",
+    tags=["patients"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get("", response_model=SuccessResponse[PatientListData])
