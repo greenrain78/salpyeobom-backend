@@ -1,4 +1,4 @@
-.PHONY: dev test migrate deploy start stop restart status logs
+.PHONY: dev test migrate seed seed-reset deploy start stop restart status logs
 
 dev:
 	uv run uvicorn app.main:app --reload
@@ -8,6 +8,12 @@ test:
 
 migrate:
 	uv run aerich upgrade
+
+seed:
+	uv run python scripts/seed.py
+
+seed-reset:
+	uv run python scripts/seed.py --reset
 
 deploy:
 	bash scripts/deploy.sh

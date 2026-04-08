@@ -8,7 +8,7 @@ TORTOISE_TEST_CONFIG = {
     "connections": {"default": "sqlite://:memory:"},
     "apps": {
         "models": {
-            "models": ["app.models.user"],
+            "models": ["app.models.user", "app.models.patient"],
             "default_connection": "default",
         }
     },

@@ -5,6 +5,9 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# 시스템 패키지
+sudo apt-get install -y make curl
+
 # uv 설치
 if ! command -v uv &>/dev/null; then
   curl -LsSf https://astral.sh/uv/install.sh | sh

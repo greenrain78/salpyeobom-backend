@@ -1,11 +1,18 @@
 from tortoise import Tortoise
+
 from app.config import settings
+
+MODELS = [
+    "app.models.user",
+    "app.models.patient",
+    "aerich.models",
+]
 
 TORTOISE_ORM = {
     "connections": {"default": settings.DATABASE_URL},
     "apps": {
         "models": {
-            "models": ["app.models.user", "aerich.models"],
+            "models": MODELS,
             "default_connection": "default",
         }
     },
@@ -13,16 +20,12 @@ TORTOISE_ORM = {
 
 
 async def init_db(db_url: str | None = None) -> None:
-    config = {
-        "connections": {"default": db_url or settings.DATABASE_URL},
-        "apps": {
-            "models": {
-                "models": ["app.models.user", "aerich.models"],
-                "default_connection": "default",
-            }
-        },
-    }
-    await Tortoise.init(config=config)
+    await Tortoise.init(
+        config={
+            "connections": {"default": db_url or settings.DATABASE_URL},
+            "apps": {"models": {"models": MODELS, "default_connection": "default"}},
+        }
+    )
     await Tortoise.generate_schemas()
 
 

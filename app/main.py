@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.database import close_db, init_db
-from app.routers import auth
+from app.routers import auth, dashboard, patients, situations
 
 
 @asynccontextmanager
@@ -21,6 +21,9 @@ def create_app() -> FastAPI:
         swagger_ui_parameters={"persistAuthorization": True},
     )
     app.include_router(auth.router)
+    app.include_router(dashboard.router)
+    app.include_router(situations.router)
+    app.include_router(patients.router)
     return app
 
 
