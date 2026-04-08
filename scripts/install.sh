@@ -3,6 +3,8 @@
 # 사용법: bash scripts/install.sh
 set -euo pipefail
 
+export PATH="$HOME/.local/bin:$PATH"
+
 cd "$(dirname "$0")/.."
 
 # 시스템 패키지

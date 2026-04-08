@@ -3,6 +3,8 @@
 # 사용법: bash scripts/deploy.sh
 set -euo pipefail
 
+export PATH="$HOME/.local/bin:$PATH"
+
 cd "$(dirname "$0")/.."
 
 git pull origin master
