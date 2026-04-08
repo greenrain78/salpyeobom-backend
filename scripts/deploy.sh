@@ -5,7 +5,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-git pull origin main
+git pull origin master
 uv sync --no-dev
 uv run aerich upgrade
 sudo systemctl restart salpyeobom-backend
