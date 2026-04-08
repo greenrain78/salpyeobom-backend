@@ -1,3 +1,5 @@
+export PATH := $(HOME)/.local/bin:$(PATH)
+
 .PHONY: dev test migrate seed seed-reset deploy start stop restart status logs
 
 dev:
