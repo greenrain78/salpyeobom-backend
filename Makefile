@@ -83,8 +83,8 @@ fix:
 	@echo "완료. make check 로 결과를 확인하세요."
 
 install-hooks:
-	uv run pre-commit install
-	@echo "pre-commit 훅이 설치되었습니다. 이제 git commit 시 자동으로 검사됩니다."
+	@echo "현재 환경에서는 git hook 대신 'make check'를 커밋 전에 직접 실행하세요."
+	@echo "CI/CD (GitHub Actions)가 push 시 자동으로 전체 검사를 수행합니다."
 
 # ── 배포 ─────────────────────────────────────────────────────────────────────
 
