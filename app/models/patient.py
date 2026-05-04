@@ -1,3 +1,5 @@
+from typing import Any
+
 from tortoise import fields
 from tortoise.models import Model
 
@@ -20,7 +22,7 @@ class Patient(Model):
     # 행정 정보
     manager_name = fields.CharField(max_length=64, null=True)
     management_level = fields.CharField(max_length=64, null=True)
-    diseases = fields.JSONField(default=list)
+    diseases: list[Any] = fields.JSONField(default=list)  # type: ignore[assignment]
     next_visit_time = fields.CharField(max_length=64, null=True)
     next_visit_plan = fields.TextField(null=True)
 
@@ -30,7 +32,7 @@ class Patient(Model):
 
 class Situation(Model):
     situation_id = fields.IntField(primary_key=True)
-    patient = fields.ForeignKeyField("models.Patient", related_name="situations")
+    patient: Any = fields.ForeignKeyField("models.Patient", related_name="situations")
     category = fields.CharField(max_length=32)
     detail_reason = fields.TextField(null=True)
     occurred_at = fields.DatetimeField()
@@ -44,7 +46,7 @@ class Situation(Model):
 
 class SituationAction(Model):
     id = fields.IntField(primary_key=True)
-    situation = fields.ForeignKeyField("models.Situation", related_name="actions")
+    situation: Any = fields.ForeignKeyField("models.Situation", related_name="actions")
     action_type = fields.CharField(max_length=16)
     action_note = fields.TextField(null=True)
     status_update = fields.CharField(max_length=16)
@@ -56,7 +58,7 @@ class SituationAction(Model):
 
 class TimeseriesData(Model):
     id = fields.IntField(primary_key=True)
-    patient = fields.ForeignKeyField("models.Patient", related_name="timeseries")
+    patient: Any = fields.ForeignKeyField("models.Patient", related_name="timeseries")
     date = fields.DateField()
     mae_score = fields.FloatField()
     is_anomaly = fields.BooleanField(default=False)

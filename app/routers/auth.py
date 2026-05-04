@@ -33,5 +33,5 @@ async def login(body: LoginRequest) -> TokenResponse:
 
 
 @router.get("/me", response_model=UserOut)
-async def me(current_user: User = Depends(get_current_user)) -> UserOut:
+async def me(current_user: User = Depends(get_current_user)) -> UserOut:  # noqa: B008
     return UserOut.model_validate(current_user)

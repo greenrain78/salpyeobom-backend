@@ -2,7 +2,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from tortoise import Tortoise
 
-from app.core.security import hash_password, create_access_token
+from app.core.security import create_access_token, hash_password
 from app.main import create_app
 from app.models.user import User
 

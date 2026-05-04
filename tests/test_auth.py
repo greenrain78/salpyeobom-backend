@@ -1,4 +1,3 @@
-import pytest
 from httpx import AsyncClient
 
 from app.core.security import decode_access_token

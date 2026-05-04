@@ -2,8 +2,8 @@ import math
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from app.core.dependencies import get_current_user
 
+from app.core.dependencies import get_current_user
 from app.models.patient import Patient
 from app.models.patient import TimeseriesData as TimeseriesModel
 from app.schemas.common import SuccessResponse

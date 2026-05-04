@@ -32,6 +32,7 @@ async def _make_patient(pid: str = "user_1001", **kwargs) -> Patient:
 # GET /api/v1/patients
 # ---------------------------------------------------------------------------
 
+
 async def test_list_patients_empty(auth_client: AsyncClient):
     res = await auth_client.get("/api/v1/patients")
     assert res.status_code == 200
@@ -77,6 +78,7 @@ async def test_list_patients_fields(auth_client: AsyncClient):
 # GET /api/v1/patients/{patient_id}/details
 # ---------------------------------------------------------------------------
 
+
 async def test_patient_details_success(auth_client: AsyncClient):
     await _make_patient()
     res = await auth_client.get("/api/v1/patients/user_1001/details")
@@ -97,14 +99,21 @@ async def test_patient_details_not_found(auth_client: AsyncClient):
 # GET /api/v1/patients/{patient_id}/timeseries
 # ---------------------------------------------------------------------------
 
+
 async def test_timeseries_success(auth_client: AsyncClient):
     patient = await _make_patient()
     today = date.today()
-    await TimeseriesModel.bulk_create([
-        TimeseriesModel(patient=patient, date=today - timedelta(days=2), mae_score=1.1, is_anomaly=False),
-        TimeseriesModel(patient=patient, date=today - timedelta(days=1), mae_score=1.4, is_anomaly=False),
-        TimeseriesModel(patient=patient, date=today, mae_score=3.42, is_anomaly=True),
-    ])
+    await TimeseriesModel.bulk_create(
+        [
+            TimeseriesModel(
+                patient=patient, date=today - timedelta(days=2), mae_score=1.1, is_anomaly=False
+            ),
+            TimeseriesModel(
+                patient=patient, date=today - timedelta(days=1), mae_score=1.4, is_anomaly=False
+            ),
+            TimeseriesModel(patient=patient, date=today, mae_score=3.42, is_anomaly=True),
+        ]
+    )
 
     res = await auth_client.get("/api/v1/patients/user_1001/timeseries")
     assert res.status_code == 200
@@ -118,10 +127,14 @@ async def test_timeseries_success(auth_client: AsyncClient):
 async def test_timeseries_days_filter(auth_client: AsyncClient):
     patient = await _make_patient()
     today = date.today()
-    await TimeseriesModel.bulk_create([
-        TimeseriesModel(patient=patient, date=today - timedelta(days=30), mae_score=1.0, is_anomaly=False),
-        TimeseriesModel(patient=patient, date=today, mae_score=1.5, is_anomaly=False),
-    ])
+    await TimeseriesModel.bulk_create(
+        [
+            TimeseriesModel(
+                patient=patient, date=today - timedelta(days=30), mae_score=1.0, is_anomaly=False
+            ),
+            TimeseriesModel(patient=patient, date=today, mae_score=1.5, is_anomaly=False),
+        ]
+    )
 
     res = await auth_client.get("/api/v1/patients/user_1001/timeseries", params={"days": 7})
     assert len(res.json()["data"]["timeseries"]) == 1
