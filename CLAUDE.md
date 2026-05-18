@@ -90,9 +90,9 @@ await conn.execute("SELECT * FROM patients WHERE ...")
 
 ### DB 스키마 변경 패턴
 1. `app/models/`에서 모델 수정
-2. `make migrate` (aerich upgrade) 실행
-3. 마이그레이션 파일이 `migrations/` 에 생성되었는지 확인
-4. 마이그레이션 파일을 git에 함께 커밋
+2. `uv run aerich migrate` 실행 → `migrations/` 에 새 마이그레이션 파일 생성
+3. `make migrate` (= `aerich upgrade`) 실행 → 마이그레이션을 DB에 적용
+4. `migrations/` 는 `.gitignore` 처리 — 커밋하지 않고 `app/models/` 의 모델 변경만 커밋
 
 ---
 
@@ -137,7 +137,7 @@ salpyeobom-backend/
 │   ├── conftest.py          # pytest fixtures (client, auth_client)
 │   └── test_*.py            # 엔드포인트별 테스트
 ├── scripts/                 # 배포/시드 스크립트
-├── migrations/              # aerich 마이그레이션 (git 추적 필수)
+├── migrations/              # aerich 마이그레이션 (.gitignore 처리 — git 추적 안 함)
 ├── CLAUDE.md                # 이 파일 — AI 런타임 설정
 ├── AGENTS.md                # AI 에이전트 작업 가이드
 ├── pyproject.toml           # 의존성 + 도구 설정
@@ -154,8 +154,8 @@ salpyeobom-backend/
 ```python
 from app.config import settings
 
-db_url = settings.database_url
-secret = settings.secret_key
+db_url = settings.DATABASE_URL
+secret = settings.SECRET_KEY
 ```
 
 `.env.example`을 참고해 새 환경변수를 추가할 때는 반드시 두 파일 모두 업데이트.
@@ -181,6 +181,6 @@ secret = settings.secret_key
 | raw SQL | Tortoise ORM `.filter()`, `.get()`, `.create()` |
 | 하드코딩 비밀값 | `settings.secret_key` |
 | `print()` 디버깅 | logger 사용 또는 제거 |
-| 마이그레이션 없는 모델 변경 | `make migrate` 실행 |
+| 마이그레이션 없는 모델 변경 | `uv run aerich migrate` 로 생성 후 `make migrate` 로 적용 |
 | 테스트 없는 엔드포인트 | 반드시 `tests/test_*.py` 작성 |
 | `git push --force` | PR + 리뷰 |

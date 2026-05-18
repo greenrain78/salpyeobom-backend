@@ -3,10 +3,11 @@
 사용법: uv run python scripts/seed.py [--reset]
   --reset: 기존 데이터 삭제 후 재생성
 """
+
 import asyncio
 import random
 import sys
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 from tortoise import Tortoise
 
@@ -104,7 +105,7 @@ SITUATIONS = [
         "patient_id": "user_1001",
         "category": "낙상 의심",
         "detail_reason": "거실 센서 가속도 변화 감지.",
-        "occurred_at": datetime(2026, 4, 8, 11, 33, 45, tzinfo=timezone.utc),
+        "occurred_at": datetime(2026, 4, 8, 11, 33, 45, tzinfo=UTC),
         "action_status": "현장 출동",
         "is_active": True,
     },
@@ -112,7 +113,7 @@ SITUATIONS = [
         "patient_id": "user_1002",
         "category": "미응답",
         "detail_reason": "최근 3시간 활동량 데이터 미수신.",
-        "occurred_at": datetime(2026, 4, 8, 10, 12, 5, tzinfo=timezone.utc),
+        "occurred_at": datetime(2026, 4, 8, 10, 12, 5, tzinfo=UTC),
         "action_status": "조치 대기",
         "is_active": True,
     },
@@ -120,7 +121,7 @@ SITUATIONS = [
         "patient_id": "user_1005",
         "category": "미응답",
         "detail_reason": "오전 투약 알림 미확인 2회 연속.",
-        "occurred_at": datetime(2026, 4, 7, 9, 5, 0, tzinfo=timezone.utc),
+        "occurred_at": datetime(2026, 4, 7, 9, 5, 0, tzinfo=UTC),
         "action_status": "조치 완료",
         "is_active": False,
     },
@@ -142,6 +143,7 @@ _TIMESERIES_THRESHOLD = 2.5
 # 시계열 데이터 생성 (14일치)
 # ---------------------------------------------------------------------------
 
+
 def _generate_timeseries(patient_id: str, days: int = 14) -> list[dict]:
     random.seed(patient_id)  # 환자별 재현 가능한 난수
     records = []
@@ -151,17 +153,20 @@ def _generate_timeseries(patient_id: str, days: int = 14) -> list[dict]:
         is_recent = i <= 2
         is_high_risk = patient_id in ("user_1001", "user_1002")
         mae = base * random.uniform(1.8, 2.2) if (is_high_risk and is_recent) else base
-        records.append({
-            "date": today - timedelta(days=i - 1),
-            "mae_score": round(mae, 2),
-            "is_anomaly": mae > _TIMESERIES_THRESHOLD,
-        })
+        records.append(
+            {
+                "date": today - timedelta(days=i - 1),
+                "mae_score": round(mae, 2),
+                "is_anomaly": mae > _TIMESERIES_THRESHOLD,
+            }
+        )
     return records
 
 
 # ---------------------------------------------------------------------------
 # 실행
 # ---------------------------------------------------------------------------
+
 
 async def seed(reset: bool = False) -> None:
     await Tortoise.init(config=TORTOISE_ORM)
@@ -230,7 +235,7 @@ async def seed(reset: bool = False) -> None:
                 created_ts += 1
 
     print(f"시계열: {created_ts}개 생성")
-    print("✓ 시드 완료")
+    print("시드 완료")
 
     await Tortoise.close_connections()
 

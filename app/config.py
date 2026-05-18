@@ -2,7 +2,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # .env(원격/기본) → .env.local(로컬 개발용) 순서로 로드.
+    # 같은 키가 있으면 뒤 파일(.env.local)이 우선한다.
+    model_config = SettingsConfigDict(env_file=(".env", ".env.local"), extra="ignore")
 
     DATABASE_URL: str = "postgres://user:pass@localhost:5432/salpyeobom"
     SECRET_KEY: str = "change-me-in-production"
