@@ -6,6 +6,7 @@ MODELS = [
     "app.models.user",
     "app.models.patient",
     "app.models.adl",
+    "app.models.adl_raw",
     "aerich.models",
 ]
 

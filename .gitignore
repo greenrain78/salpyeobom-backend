@@ -17,6 +17,7 @@ wheels/
 # Testing
 .pytest_cache/
 .ruff_cache/
+.coverage
 
 # Migrations
 migrations/
@@ -27,3 +28,6 @@ logs/
 # Temporary AI session artifacts
 prompt.txt
 run-claude-review.bat
+
+# Excel 샘플 데이터 (대용량 바이너리 — git 추적 제외)
+sample/
