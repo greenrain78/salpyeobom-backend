@@ -9,7 +9,6 @@ from app.models.patient import TimeseriesData as TimeseriesModel
 from app.schemas.common import SuccessResponse
 from app.schemas.patient_monitoring import (
     Administration,
-    AiAnalysis,
     PatientDetail,
     PatientListData,
     PatientListItem,
@@ -60,13 +59,6 @@ async def get_patient_details(
             name=patient.name,
             age=f"만 {patient.age}세",
             address_full=patient.address_full,
-            ai_analysis=AiAnalysis(
-                track_A_state=patient.track_A_state,
-                track_B_anomaly=patient.track_B_anomaly,
-                cross_verification_level=patient.cross_verification_level,
-                alert_title=patient.alert_title,
-                alert_desc=patient.alert_desc,
-            ),
             administration=Administration(
                 manager_name=patient.manager_name,
                 management_level=patient.management_level,
@@ -95,7 +87,6 @@ async def get_timeseries(
     return SuccessResponse(
         data=TimeseriesData(
             patient_id=patient_id,
-            threshold_value=patient.threshold_value,
             timeseries=[
                 TimeseriesPoint(
                     date=r.date,

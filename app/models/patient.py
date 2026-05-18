@@ -12,13 +12,6 @@ class Patient(Model):
     address_summary = fields.CharField(max_length=128)
     profile_image_url = fields.CharField(max_length=512, null=True)
     doc_no = fields.CharField(max_length=64, null=True)
-    # AI 분석
-    track_A_state = fields.CharField(max_length=16, default="정상")
-    track_B_anomaly = fields.CharField(max_length=16, default="정상")
-    cross_verification_level = fields.CharField(max_length=16, default="정상")
-    alert_title = fields.CharField(max_length=255, null=True)
-    alert_desc = fields.TextField(null=True)
-    threshold_value = fields.FloatField(default=2.5)
     # 행정 정보
     manager_name = fields.CharField(max_length=64, null=True)
     management_level = fields.CharField(max_length=64, null=True)
