@@ -42,7 +42,8 @@
 |------|------------|
 | 새 엔드포인트 추가 | 관련 `routers/*.py` + `schemas/*.py` + `models/*.py` |
 | 인증 수정 | `core/security.py`, `core/dependencies.py`, `routers/auth.py` |
-| 모델 변경 | `models/*.py` + 관련 `schemas/*.py` + 기존 마이그레이션 |
+| 모델 변경 | `docs/database-schema.md` (먼저 읽기 — 전체 스키마 파악) + `models/*.py` + 관련 `schemas/*.py` + 기존 마이그레이션 |
+| DB 구조 조회/질문 | `docs/database-schema.md` (8개 테이블 + ERD + 필드 의미가 한 문서에 정리됨) |
 | 테스트 작성 | `tests/conftest.py` + 대상 `routers/*.py` |
 | 배포 스크립트 | `scripts/` + `Makefile` |
 
@@ -155,6 +156,7 @@ git add -u
 - [ ] 요청 의도가 명확한가? (모호하면 먼저 질문)
 - [ ] 영향 받는 파일 목록을 파악했는가?
 - [ ] DB 모델 변경 시 aerich 마이그레이션을 생성했는가?
+- [ ] DB 모델 변경 시 `docs/database-schema.md` 의 테이블 표를 갱신했는가?
 - [ ] 새 엔드포인트에 Pydantic 스키마가 있는가?
 - [ ] 인증이 필요한 엔드포인트에 `Depends(get_current_user)`가 있는가?
 - [ ] 테스트를 작성했는가? (최소 성공 + 401 케이스)

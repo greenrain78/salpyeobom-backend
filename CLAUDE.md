@@ -89,10 +89,14 @@ await conn.execute("SELECT * FROM patients WHERE ...")
 4. `make check` 통과 확인 후 커밋
 
 ### DB 스키마 변경 패턴
+> **모델/스키마 작업 전 `docs/database-schema.md` 를 먼저 읽을 것.** 8개 테이블의 구조·ERD·필드 의미가 한 문서에 정리되어 있어, `app/models/` 의 여러 파일을 일일이 열지 않아도 전체 스키마를 파악할 수 있다.
+
 1. `app/models/`에서 모델 수정
 2. `uv run aerich migrate` 실행 → `migrations/` 에 새 마이그레이션 파일 생성
 3. `make migrate` (= `aerich upgrade`) 실행 → 마이그레이션을 DB에 적용
 4. `migrations/` 는 `.gitignore` 처리 — 커밋하지 않고 `app/models/` 의 모델 변경만 커밋
+5. **`docs/database-schema.md`** 의 해당 테이블 표(필드/제약/관계)를 변경 내용에 맞게 갱신 후 `app/models/` 변경과 함께 커밋
+   - `app/models/*.py` 를 편집하면 PostToolUse 훅이 이 문서 갱신을 자동으로 상기시킨다 (`.claude/settings.json`)
 
 ---
 
@@ -137,6 +141,8 @@ salpyeobom-backend/
 │   ├── conftest.py          # pytest fixtures (client, auth_client)
 │   └── test_*.py            # 엔드포인트별 테스트
 ├── scripts/                 # 배포/시드 스크립트
+├── docs/
+│   └── database-schema.md   # DB 스키마 레퍼런스 (8개 테이블 + ERD + 필드 의미)
 ├── migrations/              # aerich 마이그레이션 (.gitignore 처리 — git 추적 안 함)
 ├── CLAUDE.md                # 이 파일 — AI 런타임 설정
 ├── AGENTS.md                # AI 에이전트 작업 가이드
