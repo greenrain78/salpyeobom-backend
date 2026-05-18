@@ -3,14 +3,6 @@ from datetime import date
 from pydantic import BaseModel
 
 
-class AiAnalysis(BaseModel):
-    track_A_state: str
-    track_B_anomaly: str
-    cross_verification_level: str
-    alert_title: str | None
-    alert_desc: str | None
-
-
 class Administration(BaseModel):
     manager_name: str | None
     management_level: str | None
@@ -25,7 +17,6 @@ class PatientDetail(BaseModel):
     name: str
     age: str
     address_full: str
-    ai_analysis: AiAnalysis
     administration: Administration
 
 
@@ -34,7 +25,6 @@ class PatientListItem(BaseModel):
     name: str
     address_summary: str
     manager_name: str | None
-    cross_verification_level: str
 
     model_config = {"from_attributes": True}
 
@@ -56,5 +46,4 @@ class TimeseriesPoint(BaseModel):
 
 class TimeseriesData(BaseModel):
     patient_id: str
-    threshold_value: float
     timeseries: list[TimeseriesPoint]
