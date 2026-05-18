@@ -26,12 +26,6 @@ PATIENTS = [
         "address_full": "서울특별시 노원구 상계동 123-4 사랑빌라 201호",
         "address_summary": "상계동 123-4",
         "doc_no": "NO.2026-04-08-001",
-        "track_A_state": "응급",
-        "track_B_anomaly": "비정상",
-        "cross_verification_level": "초고위험",
-        "alert_title": "보편적 위험 및 개인 패턴 이탈 동시 감지",
-        "alert_desc": "Attention RNN 예측 오차 임계값 초과 및 응급 패턴 일치.",
-        "threshold_value": 2.5,
         "manager_name": "김재섭 주무관",
         "management_level": "집중 관리군 (1등급)",
         "diseases": ["고혈압", "초기 치매", "관절염"],
@@ -45,12 +39,6 @@ PATIENTS = [
         "address_full": "서울특별시 노원구 상계동 45-1 행복아파트 305호",
         "address_summary": "상계동 45-1",
         "doc_no": "NO.2026-04-08-002",
-        "track_A_state": "정상",
-        "track_B_anomaly": "비정상",
-        "cross_verification_level": "주의",
-        "alert_title": "개인 패턴 이탈 감지",
-        "alert_desc": "평소 대비 활동량 30% 감소 지속.",
-        "threshold_value": 2.2,
         "manager_name": "이수진 주무관",
         "management_level": "일반 관리군 (2등급)",
         "diseases": ["당뇨", "고지혈증"],
@@ -64,12 +52,6 @@ PATIENTS = [
         "address_full": "서울특별시 노원구 중계동 78-2 청솔빌라 102호",
         "address_summary": "중계동 78-2",
         "doc_no": "NO.2026-04-08-003",
-        "track_A_state": "정상",
-        "track_B_anomaly": "정상",
-        "cross_verification_level": "정상",
-        "alert_title": None,
-        "alert_desc": None,
-        "threshold_value": 3.0,
         "manager_name": "박민준 주무관",
         "management_level": "자립 관리군 (3등급)",
         "diseases": ["골다공증"],
@@ -83,12 +65,6 @@ PATIENTS = [
         "address_full": "서울특별시 노원구 하계동 22-9 미래빌 401호",
         "address_summary": "하계동 22-9",
         "doc_no": "NO.2026-04-08-004",
-        "track_A_state": "정상",
-        "track_B_anomaly": "정상",
-        "cross_verification_level": "정상",
-        "alert_title": None,
-        "alert_desc": None,
-        "threshold_value": 2.8,
         "manager_name": "김재섭 주무관",
         "management_level": "일반 관리군 (2등급)",
         "diseases": ["고혈압", "심부전"],
@@ -102,12 +78,6 @@ PATIENTS = [
         "address_full": "서울특별시 노원구 월계동 34-5 한빛주택 1층",
         "address_summary": "월계동 34-5",
         "doc_no": "NO.2026-04-08-005",
-        "track_A_state": "정상",
-        "track_B_anomaly": "정상",
-        "cross_verification_level": "정상",
-        "alert_title": None,
-        "alert_desc": None,
-        "threshold_value": 2.0,
         "manager_name": "이수진 주무관",
         "management_level": "집중 관리군 (1등급)",
         "diseases": ["중기 치매", "고혈압", "신부전"],
@@ -121,12 +91,6 @@ PATIENTS = [
         "address_full": "서울특별시 노원구 공릉동 55-3 늘푸른빌라 203호",
         "address_summary": "공릉동 55-3",
         "doc_no": "NO.2026-04-08-006",
-        "track_A_state": "정상",
-        "track_B_anomaly": "정상",
-        "cross_verification_level": "정상",
-        "alert_title": None,
-        "alert_desc": None,
-        "threshold_value": 3.2,
         "manager_name": "박민준 주무관",
         "management_level": "자립 관리군 (3등급)",
         "diseases": ["관절염"],
@@ -171,25 +135,26 @@ ACTIONS = [
     },
 ]
 
+_TIMESERIES_THRESHOLD = 2.5
+
 
 # ---------------------------------------------------------------------------
 # 시계열 데이터 생성 (14일치)
 # ---------------------------------------------------------------------------
 
-def _generate_timeseries(patient_id: str, threshold: float, days: int = 14) -> list[dict]:
+def _generate_timeseries(patient_id: str, days: int = 14) -> list[dict]:
     random.seed(patient_id)  # 환자별 재현 가능한 난수
     records = []
     today = date.today()
     for i in range(days, 0, -1):
-        base = random.uniform(0.8, threshold * 0.9)
-        # 초고위험/주의 환자는 최근 2일 이상치 발생
+        base = random.uniform(0.8, _TIMESERIES_THRESHOLD * 0.9)
         is_recent = i <= 2
         is_high_risk = patient_id in ("user_1001", "user_1002")
         mae = base * random.uniform(1.8, 2.2) if (is_high_risk and is_recent) else base
         records.append({
             "date": today - timedelta(days=i - 1),
             "mae_score": round(mae, 2),
-            "is_anomaly": mae > threshold,
+            "is_anomaly": mae > _TIMESERIES_THRESHOLD,
         })
     return records
 
@@ -255,7 +220,7 @@ async def seed(reset: bool = False) -> None:
     created_ts = 0
     for patient_data in PATIENTS:
         patient = await Patient.get(patient_id=patient_data["patient_id"])
-        for record in _generate_timeseries(patient_data["patient_id"], patient_data["threshold_value"]):
+        for record in _generate_timeseries(patient_data["patient_id"]):
             _, created = await TimeseriesData.get_or_create(
                 patient=patient,
                 date=record["date"],

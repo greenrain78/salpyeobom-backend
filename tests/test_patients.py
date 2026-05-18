@@ -14,12 +14,6 @@ async def _make_patient(pid: str = "user_1001", **kwargs) -> Patient:
         address_full=kwargs.get("address_full", "서울특별시 노원구 상계동 123-4"),
         address_summary=kwargs.get("address_summary", "상계동 123-4"),
         doc_no="NO.2026-04-08-001",
-        track_A_state=kwargs.get("track_A_state", "응급"),
-        track_B_anomaly="비정상",
-        cross_verification_level=kwargs.get("cross_verification_level", "초고위험"),
-        alert_title="보편적 위험 및 개인 패턴 이탈 동시 감지",
-        alert_desc="Attention RNN 예측 오차 임계값 초과.",
-        threshold_value=2.5,
         manager_name="김재섭",
         management_level="집중 관리군 (1등급)",
         diseases=["고혈압", "초기 치매"],
@@ -31,6 +25,7 @@ async def _make_patient(pid: str = "user_1001", **kwargs) -> Patient:
 # ---------------------------------------------------------------------------
 # GET /api/v1/patients
 # ---------------------------------------------------------------------------
+
 
 async def test_list_patients_empty(auth_client: AsyncClient):
     res = await auth_client.get("/api/v1/patients")
@@ -69,13 +64,13 @@ async def test_list_patients_fields(auth_client: AsyncClient):
     item = (await auth_client.get("/api/v1/patients")).json()["data"]["patients"][0]
     assert item["patient_id"] == "user_1001"
     assert item["manager_name"] == "김재섭"
-    assert item["cross_verification_level"] == "초고위험"
     assert "hashed_password" not in item
 
 
 # ---------------------------------------------------------------------------
 # GET /api/v1/patients/{patient_id}/details
 # ---------------------------------------------------------------------------
+
 
 async def test_patient_details_success(auth_client: AsyncClient):
     await _make_patient()
@@ -84,7 +79,6 @@ async def test_patient_details_success(auth_client: AsyncClient):
     data = res.json()["data"]
     assert data["name"] == "김순자"
     assert data["age"] == "만 78세"
-    assert data["ai_analysis"]["cross_verification_level"] == "초고위험"
     assert data["administration"]["diseases"] == ["고혈압", "초기 치매"]
 
 
@@ -97,20 +91,26 @@ async def test_patient_details_not_found(auth_client: AsyncClient):
 # GET /api/v1/patients/{patient_id}/timeseries
 # ---------------------------------------------------------------------------
 
+
 async def test_timeseries_success(auth_client: AsyncClient):
     patient = await _make_patient()
     today = date.today()
-    await TimeseriesModel.bulk_create([
-        TimeseriesModel(patient=patient, date=today - timedelta(days=2), mae_score=1.1, is_anomaly=False),
-        TimeseriesModel(patient=patient, date=today - timedelta(days=1), mae_score=1.4, is_anomaly=False),
-        TimeseriesModel(patient=patient, date=today, mae_score=3.42, is_anomaly=True),
-    ])
+    await TimeseriesModel.bulk_create(
+        [
+            TimeseriesModel(
+                patient=patient, date=today - timedelta(days=2), mae_score=1.1, is_anomaly=False
+            ),
+            TimeseriesModel(
+                patient=patient, date=today - timedelta(days=1), mae_score=1.4, is_anomaly=False
+            ),
+            TimeseriesModel(patient=patient, date=today, mae_score=3.42, is_anomaly=True),
+        ]
+    )
 
     res = await auth_client.get("/api/v1/patients/user_1001/timeseries")
     assert res.status_code == 200
     data = res.json()["data"]
     assert data["patient_id"] == "user_1001"
-    assert data["threshold_value"] == 2.5
     assert len(data["timeseries"]) == 3
     assert data["timeseries"][-1]["is_anomaly"] is True
 
@@ -118,10 +118,14 @@ async def test_timeseries_success(auth_client: AsyncClient):
 async def test_timeseries_days_filter(auth_client: AsyncClient):
     patient = await _make_patient()
     today = date.today()
-    await TimeseriesModel.bulk_create([
-        TimeseriesModel(patient=patient, date=today - timedelta(days=30), mae_score=1.0, is_anomaly=False),
-        TimeseriesModel(patient=patient, date=today, mae_score=1.5, is_anomaly=False),
-    ])
+    await TimeseriesModel.bulk_create(
+        [
+            TimeseriesModel(
+                patient=patient, date=today - timedelta(days=30), mae_score=1.0, is_anomaly=False
+            ),
+            TimeseriesModel(patient=patient, date=today, mae_score=1.5, is_anomaly=False),
+        ]
+    )
 
     res = await auth_client.get("/api/v1/patients/user_1001/timeseries", params={"days": 7})
     assert len(res.json()["data"]["timeseries"]) == 1

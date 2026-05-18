@@ -9,16 +9,16 @@ http_bearer = HTTPBearer()
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(http_bearer),
+    credentials: HTTPAuthorizationCredentials = Depends(http_bearer),  # noqa: B008
 ) -> User:
     try:
         user_id = decode_access_token(credentials.credentials)
-    except JWTError:
+    except JWTError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from err
     user = await User.get_or_none(id=int(user_id))
     if user is None:
         raise HTTPException(

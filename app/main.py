@@ -6,10 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
+from app.database import close_db, init_db
+from app.routers import auth, dashboard, patients, situations
 
 
 def _expand_origins(origins_str: str) -> list[str]:
-    """localhost ↔ 127.0.0.1 을 자동으로 양쪽 모두 허용"""
     origins: set[str] = set()
     for origin in origins_str.split(","):
         origin = origin.strip()
@@ -19,8 +20,6 @@ def _expand_origins(origins_str: str) -> list[str]:
         elif "127.0.0.1" in origin:
             origins.add(origin.replace("127.0.0.1", "localhost"))
     return list(origins)
-from app.database import close_db, init_db
-from app.routers import auth, dashboard, patients, situations
 
 
 @asynccontextmanager
@@ -57,9 +56,11 @@ def create_app() -> FastAPI:
         )
 
     @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    async def validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
         errors = [
-            f"{' → '.join(str(l) for l in e['loc'] if l != 'body')}: {e['msg']}"
+            f"{' → '.join(str(loc) for loc in e['loc'] if loc != 'body')}: {e['msg']}"
             for e in exc.errors()
         ]
         return JSONResponse(
