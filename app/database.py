@@ -5,6 +5,7 @@ from app.config import settings
 MODELS = [
     "app.models.user",
     "app.models.patient",
+    "app.models.adl",
     "aerich.models",
 ]
 

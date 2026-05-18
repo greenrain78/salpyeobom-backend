@@ -22,3 +22,7 @@ migrations/
 
 # Server runtime
 logs/
+
+# Temporary AI session artifacts
+prompt.txt
+run-claude-review.bat

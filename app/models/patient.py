@@ -12,6 +12,7 @@ class Patient(Model):
     address_summary = fields.CharField(max_length=128)
     profile_image_url = fields.CharField(max_length=512, null=True)
     doc_no = fields.CharField(max_length=64, null=True)
+    phone_number = fields.CharField(max_length=20, null=True)
     # AI 분석
     track_A_state = fields.CharField(max_length=16, default="정상")
     track_B_anomaly = fields.CharField(max_length=16, default="정상")
