@@ -1,6 +1,5 @@
-from typing import Any
-
 from tortoise import fields
+from tortoise.contrib.postgres.fields import ArrayField
 from tortoise.models import Model
 
 
@@ -35,9 +34,9 @@ class AdlRawRecord(Model):
     death_record = fields.TextField(null=True)
 
     # 분석 데이터
-    place_code_1_list: Any = fields.JSONField(null=True)
-    aix_1_list: Any = fields.JSONField(null=True)
-    aix_h_list: Any = fields.JSONField(null=True)
+    place_code_1_list: list[int] = ArrayField(element_type="int", null=True)
+    aix_1_list: list[int] = ArrayField(element_type="int", null=True)
+    aix_h_list: list[int] = ArrayField(element_type="int", null=True)
     aix_d = fields.FloatField(null=True)
     aix_1_eq_0_repeat_count = fields.IntField(null=True)
     total_aix_sum = fields.FloatField(null=True)
@@ -46,7 +45,7 @@ class AdlRawRecord(Model):
     total_age_aix_ratio = fields.FloatField(null=True)
 
     # 수면
-    sleep_depth_1_list: Any = fields.JSONField(null=True)
+    sleep_depth_1_list: list[int] = ArrayField(element_type="int", null=True)
     sleep_start_time_d = fields.CharField(max_length=8, null=True)
     sleep_end_time_d = fields.CharField(max_length=8, null=True)
     total_sleep_period = fields.FloatField(null=True)
@@ -61,7 +60,7 @@ class AdlRawRecord(Model):
     total_bath_average_count = fields.FloatField(null=True)
 
     # 외출
-    outgoing_1_list: Any = fields.JSONField(null=True)
+    outgoing_1_list: list[int] = ArrayField(element_type="int", null=True)
     outgoing_count_d = fields.IntField(null=True)
     outgoing_time_d = fields.FloatField(null=True)
     outgoing_late_night_count_d = fields.IntField(null=True)
@@ -70,10 +69,10 @@ class AdlRawRecord(Model):
     total_outgoing_average_time = fields.FloatField(null=True)
     total_outgoing_average_count = fields.FloatField(null=True)
 
-    # 시간별 환경 센서 (JSON 배열, 인덱스 = 시간 0~23)
-    temp_list: Any = fields.JSONField(null=True)
-    humi_list: Any = fields.JSONField(null=True)
-    illu_list: Any = fields.JSONField(null=True)
+    # 시간별 환경 센서 (PostgreSQL 배열, 인덱스 = 시간 0~23)
+    temp_list: list[float] = ArrayField(element_type="double precision", null=True)
+    humi_list: list[float] = ArrayField(element_type="double precision", null=True)
+    illu_list: list[float] = ArrayField(element_type="double precision", null=True)
 
     created_at = fields.DatetimeField(auto_now_add=True)
 

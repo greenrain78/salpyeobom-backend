@@ -1,6 +1,6 @@
 export PATH := $(HOME)/.local/bin:$(PATH)
 
-.PHONY: dev test migrate seed seed-reset deploy start stop restart status logs \
+.PHONY: dev test migrate seed seed-reset notebook deploy start stop restart status logs \
         lint format typecheck check fix install-hooks help
 
 .DEFAULT_GOAL := help
@@ -14,6 +14,7 @@ help:
 	@echo "  make migrate       DB 마이그레이션 적용"
 	@echo "  make seed          더미 데이터 생성"
 	@echo "  make seed-reset    더미 데이터 초기화 후 재생성"
+	@echo "  make notebook      JupyterLab 실행 (raw 데이터 분석)"
 	@echo ""
 	@echo "  [품질 검사 — 하네스]"
 	@echo "  make lint          ruff 린트 검사"
@@ -52,6 +53,9 @@ seed:
 
 seed-reset:
 	uv run python scripts/seed.py --reset
+
+notebook:
+	uv run jupyter lab notebooks/
 
 # ── 품질 검사 (하네스 피드백 루프) ──────────────────────────────────────────
 

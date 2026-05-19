@@ -312,9 +312,9 @@ adl_hourly_environment 시간별 환경 센서 (하루 24행)
 
 | 필드 | 타입 | 제약 | 의미 | 예시값 |
 |------|------|------|------|--------|
-| `place_code_1_list` | jsonb | null | 위치 코드 시계열 목록 | `[1, 1, 2, 3, ...]` |
-| `aix_1_list` | jsonb | null | AIX 1차 값 목록 | `[0.0, 12.3, ...]` |
-| `aix_h_list` | jsonb | null | AIX 시간별 값 목록 (24) | `[5.1, 0.0, ...]` |
+| `place_code_1_list` | int[] | null | 위치 코드 시계열 (분 단위 1440개) | `[0, 0, 10, ...]` |
+| `aix_1_list` | int[] | null | AIX 1차 값 (분 단위 1440개) | `[0, 12, 7, ...]` |
+| `aix_h_list` | int[] | null | AIX 시간별 값 (24개) | `[18, 7, 4, ...]` |
 | `aix_d` | float | null | AIX 일 단위 값 | `250.5` |
 | `aix_1_eq_0_repeat_count` | int | null | AIX=0 연속 반복 횟수 | `3` |
 | `total_aix_sum` | float | null | 총 AIX 합계 | `1820.4` |
@@ -326,7 +326,7 @@ adl_hourly_environment 시간별 환경 센서 (하루 24행)
 
 | 필드 | 타입 | 제약 | 의미 | 예시값 |
 |------|------|------|------|--------|
-| `sleep_depth_1_list` | jsonb | null | 수면 깊이 시계열 목록 | `[1, 2, 3, 2, ...]` |
+| `sleep_depth_1_list` | int[] | null | 수면 깊이 시계열 (분 단위 1440개) | `[4, 4, 3, ...]` |
 | `sleep_start_time_d` | varchar(8) | null | 수면 시작 시각 (HH:MM) | `"22:30"` |
 | `sleep_end_time_d` | varchar(8) | null | 수면 종료 시각 (HH:MM) | `"06:45"` |
 | `total_sleep_period` | float | null | 총 수면 시간 (분) | `420.5` |
@@ -347,7 +347,7 @@ adl_hourly_environment 시간별 환경 센서 (하루 24행)
 
 | 필드 | 타입 | 제약 | 의미 | 예시값 |
 |------|------|------|------|--------|
-| `outgoing_1_list` | jsonb | null | 외출 시계열 목록 | `[0, 1, 1, 0, ...]` |
+| `outgoing_1_list` | int[] | null | 외출 시계열 (분 단위 1440개) | `[255, 254, 254, ...]` |
 | `outgoing_count_d` | int | null | 일일 외출 횟수 | `5` |
 | `outgoing_time_d` | float | null | 일일 외출 시간 (분) | `150.0` |
 | `outgoing_late_night_count_d` | int | null | 일일 심야 외출 횟수 | `0` |
@@ -356,13 +356,13 @@ adl_hourly_environment 시간별 환경 센서 (하루 24행)
 | `total_outgoing_average_time` | float | null | 누적 외출 평균 시간 (분) | `135.0` |
 | `total_outgoing_average_count` | float | null | 누적 외출 평균 횟수 | `4.8` |
 
-**시간별 환경 센서** (JSON 배열, 인덱스 = 시간 0~23)
+**시간별 환경 센서** (PostgreSQL 배열, 인덱스 = 시간 0~23)
 
 | 필드 | 타입 | 제약 | 의미 | 예시값 |
 |------|------|------|------|--------|
-| `temp_list` | jsonb | null | 24시간 온도 목록 (℃) | `[22.1, 21.8, ..., 27.8]` |
-| `humi_list` | jsonb | null | 24시간 습도 목록 (%) | `[58.0, 60.2, ..., 61.5]` |
-| `illu_list` | jsonb | null | 24시간 조도 목록 (lux) | `[0.0, 0.0, ..., 28.0]` |
+| `temp_list` | double precision[] | null | 24시간 온도 목록 (℃) | `[22.1, 21.8, ..., 27.8]` |
+| `humi_list` | double precision[] | null | 24시간 습도 목록 (%) | `[58.0, 60.2, ..., 61.5]` |
+| `illu_list` | double precision[] | null | 24시간 조도 목록 (lux) | `[0.0, 0.0, ..., 28.0]` |
 | `created_at` | timestamptz | auto_now_add | 레코드 생성 시각 | `2026-05-18T18:02:07Z` |
 
 ---

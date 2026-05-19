@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pytest
 from tortoise.exceptions import IntegrityError
@@ -24,7 +24,7 @@ async def test_adl_raw_ingest_create(client):
         patient=patient,
         device_id="01021379180",
         gateway_mac="6044197d21a4",
-        device_ts=datetime(2021, 3, 17, 10, 14, 54, tzinfo=timezone.utc),
+        device_ts=datetime(2021, 3, 17, 10, 14, 54, tzinfo=UTC),
         payload={"header": {"deviceId": "01021379180"}, "data": {"numOfSensors": 4}},
     )
     assert raw.id is not None
@@ -37,7 +37,7 @@ async def test_adl_raw_ingest_patient_nullable(client):
         patient=None,
         device_id="unknown_device",
         gateway_mac="aabbccddeeff",
-        device_ts=datetime(2021, 3, 17, 10, 0, 0, tzinfo=timezone.utc),
+        device_ts=datetime(2021, 3, 17, 10, 0, 0, tzinfo=UTC),
         payload={},
     )
     assert raw.patient_id is None

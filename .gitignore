@@ -19,6 +19,9 @@ wheels/
 .ruff_cache/
 .coverage
 
+# Jupyter
+.ipynb_checkpoints/
+
 # Migrations
 migrations/
 
