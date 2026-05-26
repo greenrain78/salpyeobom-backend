@@ -5,15 +5,14 @@
 """
 
 import asyncio
-import random
 import sys
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime
 
 from tortoise import Tortoise
 
 sys.path.insert(0, ".")
 from app.database import TORTOISE_ORM
-from app.models.patient import Patient, Situation, SituationAction, TimeseriesData
+from app.models.patient import Patient, Situation, SituationAction
 
 # ---------------------------------------------------------------------------
 # 더미 데이터 정의
@@ -136,32 +135,6 @@ ACTIONS = [
     },
 ]
 
-_TIMESERIES_THRESHOLD = 2.5
-
-
-# ---------------------------------------------------------------------------
-# 시계열 데이터 생성 (14일치)
-# ---------------------------------------------------------------------------
-
-
-def _generate_timeseries(patient_id: str, days: int = 14) -> list[dict]:
-    random.seed(patient_id)  # 환자별 재현 가능한 난수
-    records = []
-    today = date.today()
-    for i in range(days, 0, -1):
-        base = random.uniform(0.8, _TIMESERIES_THRESHOLD * 0.9)
-        is_recent = i <= 2
-        is_high_risk = patient_id in ("user_1001", "user_1002")
-        mae = base * random.uniform(1.8, 2.2) if (is_high_risk and is_recent) else base
-        records.append(
-            {
-                "date": today - timedelta(days=i - 1),
-                "mae_score": round(mae, 2),
-                "is_anomaly": mae > _TIMESERIES_THRESHOLD,
-            }
-        )
-    return records
-
 
 # ---------------------------------------------------------------------------
 # 실행
@@ -173,7 +146,6 @@ async def seed(reset: bool = False) -> None:
     await Tortoise.generate_schemas()
 
     if reset:
-        await TimeseriesData.all().delete()
         await SituationAction.all().delete()
         await Situation.all().delete()
         await Patient.all().delete()
@@ -220,21 +192,6 @@ async def seed(reset: bool = False) -> None:
             created_actions += 1
 
     print(f"조치 기록: {created_actions}건 생성")
-
-    # 시계열
-    created_ts = 0
-    for patient_data in PATIENTS:
-        patient = await Patient.get(patient_id=patient_data["patient_id"])
-        for record in _generate_timeseries(patient_data["patient_id"]):
-            _, created = await TimeseriesData.get_or_create(
-                patient=patient,
-                date=record["date"],
-                defaults={"mae_score": record["mae_score"], "is_anomaly": record["is_anomaly"]},
-            )
-            if created:
-                created_ts += 1
-
-    print(f"시계열: {created_ts}개 생성")
     print("시드 완료")
 
     await Tortoise.close_connections()

@@ -1,5 +1,3 @@
-from datetime import date
-
 from pydantic import BaseModel
 
 
@@ -34,16 +32,3 @@ class PatientListData(BaseModel):
     current_page: int
     total_pages: int
     patients: list[PatientListItem]
-
-
-class TimeseriesPoint(BaseModel):
-    date: date
-    mae_score: float
-    is_anomaly: bool
-
-    model_config = {"from_attributes": True}
-
-
-class TimeseriesData(BaseModel):
-    patient_id: str
-    timeseries: list[TimeseriesPoint]

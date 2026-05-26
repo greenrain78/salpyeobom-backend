@@ -48,14 +48,3 @@ class SituationAction(Model):
 
     class Meta:
         table = "situation_actions"
-
-
-class TimeseriesData(Model):
-    id = fields.IntField(primary_key=True)
-    patient: Any = fields.ForeignKeyField("models.Patient", related_name="timeseries")
-    date = fields.DateField()
-    mae_score = fields.FloatField()
-    is_anomaly = fields.BooleanField(default=False)
-
-    class Meta:
-        table = "timeseries_data"

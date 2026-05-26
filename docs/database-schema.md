@@ -1,8 +1,12 @@
 # 데이터베이스 스키마 — salpyeobom-backend
 
 > 고령자 원격 모니터링 백엔드의 전체 DB 스키마 레퍼런스.
-> AI 에이전트가 `app/models/` 의 4개 파일을 일일이 읽지 않고도 스키마·관계·필드 의미를
+> AI 에이전트가 `app/models/` 의 파일을 일일이 읽지 않고도 스키마·관계·필드 의미를
 > 한 번에 파악하도록 작성되었다. **모델 코드를 변경하면 이 문서도 함께 갱신할 것.**
+
+> ⚠️ 분석 레이어(`TimeseriesData` · `AdlDailyRecord` · `AdlHourlyEnvironment`)는
+> 2026-05-26 재설계를 위해 제거되었다. 새 분석 레이어는 미정 — 결정되면 본 문서에
+> 추가한다.
 
 ---
 
@@ -13,7 +17,7 @@
 | DBMS | PostgreSQL |
 | ORM | Tortoise ORM (async) + asyncpg |
 | 마이그레이션 | Aerich |
-| 테이블 수 | 7개 (+ `aerich` 마이그레이션 추적 테이블, 자동 생성) |
+| 테이블 수 | 5개 (+ `aerich` 마이그레이션 추적 테이블, 자동 생성) |
 
 ### 모델 파일 ↔ 테이블 매핑
 
@@ -23,9 +27,6 @@
 | `app/models/patient.py` | `Patient` | `patients` | 환자/모니터링 |
 | `app/models/patient.py` | `Situation` | `situations` | 환자/모니터링 |
 | `app/models/patient.py` | `SituationAction` | `situation_actions` | 환자/모니터링 |
-| `app/models/patient.py` | `TimeseriesData` | `timeseries_data` | 환자/모니터링 |
-| `app/models/adl.py` | `AdlDailyRecord` | `adl_daily_records` | ADL 파이프라인 |
-| `app/models/adl.py` | `AdlHourlyEnvironment` | `adl_hourly_environment` | ADL 파이프라인 |
 | `app/models/adl_raw.py` | `AdlRawRecord` | `adl_raw_records` | ADL 원시 샘플 |
 
 모델 등록은 `app/database.py` 의 `MODELS` 리스트에서 관리된다.
@@ -38,9 +39,6 @@
 erDiagram
     Patient ||--o{ Situation : "situations"
     Situation ||--o{ SituationAction : "actions"
-    Patient ||--o{ TimeseriesData : "timeseries"
-    Patient ||--o{ AdlDailyRecord : "adl_records (CASCADE)"
-    AdlDailyRecord ||--o{ AdlHourlyEnvironment : "hourly_env (CASCADE)"
 
     User {
         int id PK
@@ -60,22 +58,6 @@ erDiagram
     SituationAction {
         int id PK
         int situation_id FK
-    }
-    TimeseriesData {
-        int id PK
-        string patient_id FK
-        date date
-        float mae_score
-    }
-    AdlDailyRecord {
-        int id PK
-        string patient_id FK
-        date record_date
-    }
-    AdlHourlyEnvironment {
-        int id PK
-        int daily_record_id FK
-        int hour
     }
     AdlRawRecord {
         int id PK
@@ -114,7 +96,7 @@ erDiagram
 
 #### `patients` (`Patient`)
 
-모니터링 대상 고령자. **스키마의 허브 테이블**로, 상황·시계열·ADL 데이터가 모두 이 테이블을 참조한다.
+모니터링 대상 고령자. **스키마의 허브 테이블**로, 상황 데이터가 이 테이블을 참조한다.
 PK가 정수 auto-increment가 아닌 **외부 시스템 ID 문자열**(`patient_id`)임에 주의.
 
 | 필드 | 타입 | 제약 | 의미 | 예시값 |
@@ -133,7 +115,7 @@ PK가 정수 auto-increment가 아닌 **외부 시스템 ID 문자열**(`patient
 | `next_visit_time` | varchar(64) | null | 다음 방문 시간 | `"2026-05-22 14:00"` |
 | `next_visit_plan` | text | null | 다음 방문 계획 메모 | `"혈압약 처방 확인"` |
 
-**역참조**: `situations`, `timeseries`, `adl_records`
+**역참조**: `situations`
 
 #### `situations` (`Situation`)
 
@@ -165,85 +147,9 @@ PK가 정수 auto-increment가 아닌 **외부 시스템 ID 문자열**(`patient
 | `status_update` | varchar(16) | NOT NULL | 조치 후 갱신된 상태 | `"조치 완료"` |
 | `created_at` | timestamptz | auto_now_add | 조치 기록 시각 | `2026-04-08T12:00:00Z` |
 
-#### `timeseries_data` (`TimeseriesData`)
-
-환자별 일자별 이상탐지 점수 시계열. 추세 그래프용. 환자 1 : N.
-
-| 필드 | 타입 | 제약 | 의미 | 예시값 |
-|------|------|------|------|--------|
-| `id` | int | PK, auto | 데이터 포인트 ID | `1` |
-| `patient_id` | varchar(64) | FK → `patients`, NOT NULL | 대상 환자 (related_name `timeseries`) | `"user_1001"` |
-| `date` | date | NOT NULL | 데이터 날짜 | `2026-05-18` |
-| `mae_score` | float | NOT NULL | MAE(이상탐지) 점수 | `1.25` |
-| `is_anomaly` | bool | default `false` | 이상 판정 여부 | `false` |
-
 ---
 
-### 도메인 3 — ADL 파이프라인
-
-ADL(Activities of Daily Living, 일상생활활동) 데이터를 2단계로 저장한다:
-
-```
-adl_daily_records     일별 집계 피처 — AI 학습/예측 입력값
-       ↓ (1:24)
-adl_hourly_environment 시간별 환경 센서 (하루 24행)
-```
-
-#### `adl_daily_records` (`AdlDailyRecord`)
-
-환자별 하루치 ADL 집계 피처. AI 이상탐지 모델의 입력값.
-
-> `unique_together = (patient, record_date)` — 환자별 날짜당 1행만 존재.
-> on_delete **CASCADE** — 환자 삭제 시 함께 삭제됨.
-
-| 필드 | 타입 | 제약 | 의미 | 예시값 |
-|------|------|------|------|--------|
-| `id` | int | PK, auto | 레코드 ID | `1` |
-| `patient_id` | varchar(64) | FK → `patients`, CASCADE | 대상 환자 (related_name `adl_records`) | `"NOR_001"` |
-| `record_date` | date | NOT NULL, UNIQUE(+patient) | 기록 날짜 | `2026-05-18` |
-| **수면** | | | | |
-| `sleep_start_time` | varchar(8) | null | 수면 시작 시각 (HH:MM) | `"22:30"` |
-| `sleep_end_time` | varchar(8) | null | 수면 종료 시각 (HH:MM) | `"06:45"` |
-| `total_sleep_period` | float | null | 총 수면 시간 (분) | `420.5` |
-| `total_sleep_aix_ratio` | float | null | 수면 중 AIX(활동) 비율 | `0.045` |
-| `aix_score` | float | null | 일일 활동 지수 (AIX) | `250.1` |
-| **외출** | | | | |
-| `outgoing_count` | int | null | 외출 횟수 | `5` |
-| `outgoing_time` | float | null | 외출 시간 합계 (분) | `150.0` |
-| `outgoing_late_night_count` | int | null | 심야 외출 횟수 | `0` |
-| `outgoing_late_night_time` | float | null | 심야 외출 시간 합계 (분) | `0.0` |
-| **욕실** | | | | |
-| `bath_count` | int | null | 목욕 횟수 | `8` |
-| `bath_time` | float | null | 목욕 시간 합계 (분) | `120.5` |
-| `bath_nomove_time` | float | null | 욕실 내 무동작 시간 (분) | `15.3` |
-| `bath_count_in_sleep` | int | null | 수면 시간대 목욕 횟수 | `0` |
-| `total_bath_average_count` | float | null | 누적 목욕 평균 횟수 | `6.5` |
-| **AI 분석 결과** | | | | |
-| `mae_score` | float | null | MAE(이상탐지) 점수 | `1.25` |
-| `is_anomaly` | bool | default `false` | 이상 판정 여부 | `false` |
-| `created_at` | timestamptz | auto_now_add | 레코드 생성 시각 | `2026-05-18T04:00:00Z` |
-
-**역참조**: `hourly_env`
-
-#### `adl_hourly_environment` (`AdlHourlyEnvironment`)
-
-`adl_daily_records` 1행에 대응하는 시간별 환경 센서 측정값. 하루당 24행(0~23시).
-
-> `unique_together = (daily_record, hour)` — 일별 레코드당 시간별 1행.
-> on_delete **CASCADE** — 일별 레코드 삭제 시 함께 삭제됨.
-
-| 필드 | 타입 | 제약 | 의미 | 예시값 |
-|------|------|------|------|--------|
-| `id` | int | PK, auto | 레코드 ID | `1` |
-| `daily_record_id` | int | FK → `adl_daily_records`, CASCADE | 대상 일별 레코드 (related_name `hourly_env`) | `1` |
-| `hour` | int | NOT NULL, UNIQUE(+daily_record) | 시간 (0~23) | `14` |
-| `temperature` | float | null | 온도 (℃) | `27.8` |
-| `humidity` | float | null | 습도 (%) | `61.5` |
-| `illuminance` | float | null | 조도 (lux) | `28.0` |
-
----
-
-### 도메인 4 — ADL 원시 샘플
+### 도메인 3 — ADL 원시 샘플
 
 #### `adl_raw_records` (`AdlRawRecord`)
 
@@ -348,21 +254,6 @@ adl_hourly_environment 시간별 환경 센서 (하루 24행)
 
 ## 4. 설계 노트
 
-### ADL 2단 저장 전략
-
-ADL 데이터는 가공 단계별로 별도 테이블에 저장된다.
-
-- **`adl_daily_records`** — 하루 단위로 집계한 피처. AI 이상탐지 모델의 직접 입력값.
-  환자별 날짜당 1행(`unique_together`)이 보장된다.
-- **`adl_hourly_environment`** — 일별 레코드에 딸린 시간별 환경 센서값(24행/일).
-
-### 이상탐지 결과의 이중 저장
-
-`mae_score` / `is_anomaly` 필드가 `timeseries_data` 와 `adl_daily_records` 양쪽에 존재한다.
-모델 코드 주석에 따르면 `adl_daily_records` 의 AI 분석 필드가 **`TimeseriesData` 대체**
-목적이다. 신규 코드는 `adl_daily_records` 쪽을 사용하고, `timeseries_data` 는 레거시
-추세 그래프 용도로 유지된다. 어느 쪽을 갱신/조회할지 라우터별로 확인할 것.
-
 ### `adl_raw_records` 의 독립성
 
 `adl_raw_records` 는 데이터바우처 엑셀 샘플 적재 전용으로, 운영 환자(`patients`)와
@@ -384,6 +275,12 @@ FK 관계가 없다. 환자 식별자도 `care_recipient_id`(varchar)로 별도 
   계산 오류·결측이 다수 관측됨. AI 입력으로 쓸 때는 별도 검증/대체값 필요.
 - **`source_type = "사망"`** 파일의 일부 hex 컬럼은 정수 `0` 으로만 채워진 행이
   있어 `hex_to_int_list()` 가 `None` 을 반환한다 (디코딩 실패가 아닌 원본 결측).
+
+### 분석 레이어 재설계 진행 중 (2026-05-26~)
+
+`TimeseriesData` · `AdlDailyRecord` · `AdlHourlyEnvironment` 세 모델이 가지던
+이상탐지·일별 집계·시간별 환경 책임은 모두 제거되었으며, 새 설계 방향이 확정될 때까지
+보류 상태다. 새 모델·라우터·시더는 결정 후 본 문서에 다시 추가한다.
 
 ---
 

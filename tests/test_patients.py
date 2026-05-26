@@ -1,9 +1,6 @@
-from datetime import date, timedelta
-
 from httpx import AsyncClient
 
 from app.models.patient import Patient
-from app.models.patient import TimeseriesData as TimeseriesModel
 
 
 async def _make_patient(pid: str = "user_1001", **kwargs) -> Patient:
@@ -84,60 +81,4 @@ async def test_patient_details_success(auth_client: AsyncClient):
 
 async def test_patient_details_not_found(auth_client: AsyncClient):
     res = await auth_client.get("/api/v1/patients/ghost/details")
-    assert res.status_code == 404
-
-
-# ---------------------------------------------------------------------------
-# GET /api/v1/patients/{patient_id}/timeseries
-# ---------------------------------------------------------------------------
-
-
-async def test_timeseries_success(auth_client: AsyncClient):
-    patient = await _make_patient()
-    today = date.today()
-    await TimeseriesModel.bulk_create(
-        [
-            TimeseriesModel(
-                patient=patient, date=today - timedelta(days=2), mae_score=1.1, is_anomaly=False
-            ),
-            TimeseriesModel(
-                patient=patient, date=today - timedelta(days=1), mae_score=1.4, is_anomaly=False
-            ),
-            TimeseriesModel(patient=patient, date=today, mae_score=3.42, is_anomaly=True),
-        ]
-    )
-
-    res = await auth_client.get("/api/v1/patients/user_1001/timeseries")
-    assert res.status_code == 200
-    data = res.json()["data"]
-    assert data["patient_id"] == "user_1001"
-    assert len(data["timeseries"]) == 3
-    assert data["timeseries"][-1]["is_anomaly"] is True
-
-
-async def test_timeseries_days_filter(auth_client: AsyncClient):
-    patient = await _make_patient()
-    today = date.today()
-    await TimeseriesModel.bulk_create(
-        [
-            TimeseriesModel(
-                patient=patient, date=today - timedelta(days=30), mae_score=1.0, is_anomaly=False
-            ),
-            TimeseriesModel(patient=patient, date=today, mae_score=1.5, is_anomaly=False),
-        ]
-    )
-
-    res = await auth_client.get("/api/v1/patients/user_1001/timeseries", params={"days": 7})
-    assert len(res.json()["data"]["timeseries"]) == 1
-
-
-async def test_timeseries_new_patient_returns_empty(auth_client: AsyncClient):
-    await _make_patient()
-    res = await auth_client.get("/api/v1/patients/user_1001/timeseries")
-    assert res.status_code == 200
-    assert res.json()["data"]["timeseries"] == []
-
-
-async def test_timeseries_not_found(auth_client: AsyncClient):
-    res = await auth_client.get("/api/v1/patients/ghost/timeseries")
     assert res.status_code == 404

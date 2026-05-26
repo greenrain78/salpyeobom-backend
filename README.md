@@ -38,7 +38,6 @@ make test         # 테스트 실행 (SQLite in-memory)
 make check        # lint + typecheck + test (커밋 전 필수)
 make migrate      # aerich upgrade
 make seed         # 데모용 시드 데이터 (user_1001 등)
-make seed-adl     # ADL 파이프라인 가상 데이터 (NOR/EMR/DTH 90명 × 30일)
 ```
 
 ### 5. 배포

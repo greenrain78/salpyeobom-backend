@@ -1,6 +1,6 @@
 export PATH := $(HOME)/.local/bin:$(PATH)
 
-.PHONY: dev test migrate seed seed-reset seed-adl seed-adl-reset notebook deploy start stop restart status logs \
+.PHONY: dev test migrate seed seed-reset notebook deploy start stop restart status logs \
         lint format typecheck check fix install-hooks help
 
 .DEFAULT_GOAL := help
@@ -14,8 +14,6 @@ help:
 	@echo "  make migrate       DB 마이그레이션 적용"
 	@echo "  make seed          더미 데이터 생성"
 	@echo "  make seed-reset    더미 데이터 초기화 후 재생성"
-	@echo "  make seed-adl      ADL 가상 데이터 생성 (NOR/EMR/DTH 90명 × 30일)"
-	@echo "  make seed-adl-reset ADL 가상 데이터 초기화 후 재생성"
 	@echo "  make notebook      JupyterLab 실행 (raw 데이터 분석)"
 	@echo ""
 	@echo "  [품질 검사 — 하네스]"
@@ -55,12 +53,6 @@ seed:
 
 seed-reset:
 	uv run python scripts/seed.py --reset
-
-seed-adl:
-	uv run python scripts/seed_adl.py
-
-seed-adl-reset:
-	uv run python scripts/seed_adl.py --reset
 
 notebook:
 	uv run jupyter lab notebooks/

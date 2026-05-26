@@ -1,19 +1,15 @@
 import math
-from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from app.core.dependencies import get_current_user
 from app.models.patient import Patient
-from app.models.patient import TimeseriesData as TimeseriesModel
 from app.schemas.common import SuccessResponse
 from app.schemas.patient_monitoring import (
     Administration,
     PatientDetail,
     PatientListData,
     PatientListItem,
-    TimeseriesData,
-    TimeseriesPoint,
 )
 
 router = APIRouter(
@@ -66,34 +62,5 @@ async def get_patient_details(
                 next_visit_time=patient.next_visit_time,
                 next_visit_plan=patient.next_visit_plan,
             ),
-        )
-    )
-
-
-@router.get("/{patient_id}/timeseries", response_model=SuccessResponse[TimeseriesData])
-async def get_timeseries(
-    patient_id: str = Path(...),
-    days: int = Query(default=14, ge=1),
-) -> SuccessResponse[TimeseriesData]:
-    patient = await Patient.get_or_none(patient_id=patient_id)
-    if patient is None:
-        raise HTTPException(status_code=404, detail="대상자를 찾을 수 없습니다.")
-
-    records = await TimeseriesModel.filter(
-        patient=patient,
-        date__gte=date.today() - timedelta(days=days),
-    ).order_by("date")
-
-    return SuccessResponse(
-        data=TimeseriesData(
-            patient_id=patient_id,
-            timeseries=[
-                TimeseriesPoint(
-                    date=r.date,
-                    mae_score=r.mae_score,
-                    is_anomaly=r.is_anomaly,
-                )
-                for r in records
-            ],
         )
     )
