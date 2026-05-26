@@ -4,6 +4,10 @@ import type {
   ActionRequest,
   ActionResponse,
   ActiveSituationsData,
+  AdlRawDetail,
+  AdlRawFilters,
+  AdlRawRecipientRecordsData,
+  AdlRawRecipientsData,
   DashboardSummary,
   PatientDetail,
   PatientListData,
@@ -71,5 +75,55 @@ export function useSubmitAction() {
       void qc.invalidateQueries({ queryKey: ["situations"] });
       void qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
+  });
+}
+
+interface UseAdlRawRecipientsArgs {
+  filters: AdlRawFilters;
+  page: number;
+  pageSize: number;
+}
+
+export function useAdlRawRecipients({
+  filters,
+  page,
+  pageSize,
+}: UseAdlRawRecipientsArgs) {
+  return useQuery({
+    queryKey: ["adl-raw", "recipients", { filters, page, pageSize }],
+    queryFn: () =>
+      apiRequestEnvelope<AdlRawRecipientsData>("/api/v1/adl-raw/recipients", {
+        searchParams: {
+          source_type: filters.source_type,
+          sex: filters.sex,
+          alone: filters.alone,
+          district: filters.district,
+          age_min: filters.age_min,
+          age_max: filters.age_max,
+          q: filters.q,
+          page,
+          page_size: pageSize,
+        },
+      }),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useAdlRawRecordsForRecipient(recipientId: string | undefined) {
+  return useQuery({
+    queryKey: ["adl-raw", "recipient-records", recipientId],
+    queryFn: () =>
+      apiRequestEnvelope<AdlRawRecipientRecordsData>(
+        `/api/v1/adl-raw/recipients/${encodeURIComponent(recipientId ?? "")}/records`,
+      ),
+    enabled: Boolean(recipientId),
+  });
+}
+
+export function useAdlRawDetail(id: number | undefined) {
+  return useQuery({
+    queryKey: ["adl-raw", "detail", id],
+    queryFn: () => apiRequestEnvelope<AdlRawDetail>(`/api/v1/adl-raw/${id}`),
+    enabled: id !== undefined,
   });
 }
