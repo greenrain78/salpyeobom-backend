@@ -50,8 +50,6 @@ async def get_patient_details(
 
     return SuccessResponse(
         data=PatientDetail(
-            doc_no=patient.doc_no,
-            profile_image_url=patient.profile_image_url,
             name=patient.name,
             age=f"만 {patient.age}세",
             address_full=patient.address_full,
@@ -59,8 +57,6 @@ async def get_patient_details(
                 manager_name=patient.manager_name,
                 management_level=patient.management_level,
                 diseases=patient.diseases,
-                next_visit_time=patient.next_visit_time,
-                next_visit_plan=patient.next_visit_plan,
             ),
         )
     )

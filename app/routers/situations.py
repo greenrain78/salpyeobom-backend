@@ -17,7 +17,7 @@ async def get_active_situations(
     limit: int = Query(default=20, ge=1),
 ) -> SuccessResponse[ActiveSituationsData]:
     situations = (
-        await Situation.filter(is_active=True)
+        await Situation.filter(action_status__not="조치 완료")
         .select_related("patient")
         .order_by("-occurred_at")
         .limit(limit)
@@ -58,7 +58,6 @@ async def create_action(
         situation=situation,
         action_type=body.action_type,
         action_note=body.action_note,
-        status_update=body.status_update,
     )
     situation.action_status = body.status_update
     await situation.save()

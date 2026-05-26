@@ -106,14 +106,10 @@ PK가 정수 auto-increment가 아닌 **외부 시스템 ID 문자열**(`patient
 | `age` | int | NOT NULL | 나이 | `78` |
 | `address_full` | varchar(255) | NOT NULL | 전체 주소 | `"서울특별시 노원구 상계동 123-4"` |
 | `address_summary` | varchar(128) | NOT NULL | 요약 주소 (목록 표시용) | `"노원구 상계동"` |
-| `profile_image_url` | varchar(512) | null | 프로필 이미지 URL | `null` |
-| `doc_no` | varchar(64) | null | 의료 기록 번호 | `null` |
 | `phone_number` | varchar(20) | null | 전화번호 | `"010-1234-5678"` |
 | `manager_name` | varchar(64) | null | 담당 관리자명 | `"이영희"` |
 | `management_level` | varchar(64) | null | 관리 등급 | `"집중 관리군 (1등급)"`, `"자립 관리군 (3등급)"` |
 | `diseases` | jsonb | default `[]` | 질병 목록 (문자열 배열) | `["고혈압", "초기 치매", "관절염"]` |
-| `next_visit_time` | varchar(64) | null | 다음 방문 시간 | `"2026-05-22 14:00"` |
-| `next_visit_plan` | text | null | 다음 방문 계획 메모 | `"혈압약 처방 확인"` |
 
 **역참조**: `situations`
 
@@ -128,8 +124,7 @@ PK가 정수 auto-increment가 아닌 **외부 시스템 ID 문자열**(`patient
 | `category` | varchar(32) | NOT NULL | 상황 분류 | `"낙상 의심"`, `"미응답"`, `"이상 패턴"`, `"사망 감지"` |
 | `detail_reason` | text | null | 상세 사유 | `"3시간 무동작 감지"` |
 | `occurred_at` | timestamptz | NOT NULL | 발생 시각 | `2026-04-08T11:33:45Z` |
-| `action_status` | varchar(16) | default `"조치 대기"` | 조치 진행 상태 | `"조치 대기"`, `"현장 출동"`, `"조치 완료"` |
-| `is_active` | bool | default `true` | 활성(미해결) 여부 | `true` |
+| `action_status` | varchar(16) | default `"조치 대기"` | 조치 진행 상태 (활성 여부의 단일 출처 — `"조치 완료"` = 비활성) | `"조치 대기"`, `"현장 출동"`, `"조치 완료"` |
 | `created_at` | timestamptz | auto_now_add | 레코드 생성 시각 | `2026-04-08T11:34:00Z` |
 
 **역참조**: `actions`
@@ -144,7 +139,6 @@ PK가 정수 auto-increment가 아닌 **외부 시스템 ID 문자열**(`patient
 | `situation_id` | int | FK → `situations`, NOT NULL | 대상 상황 (related_name `actions`) | `1` |
 | `action_type` | varchar(16) | NOT NULL | 조치 유형 | `"유선 연락"`, `"방문 상담"` |
 | `action_note` | text | null | 조치 메모 | `"보호자에게 연락 완료"` |
-| `status_update` | varchar(16) | NOT NULL | 조치 후 갱신된 상태 | `"조치 완료"` |
 | `created_at` | timestamptz | auto_now_add | 조치 기록 시각 | `2026-04-08T12:00:00Z` |
 
 ---

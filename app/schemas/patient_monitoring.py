@@ -5,13 +5,9 @@ class Administration(BaseModel):
     manager_name: str | None
     management_level: str | None
     diseases: list[str]
-    next_visit_time: str | None
-    next_visit_plan: str | None
 
 
 class PatientDetail(BaseModel):
-    doc_no: str | None
-    profile_image_url: str | None
     name: str
     age: str
     address_full: str

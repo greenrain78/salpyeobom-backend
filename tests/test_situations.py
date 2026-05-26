@@ -24,7 +24,6 @@ async def _make_situation(patient: Patient, **kwargs) -> Situation:
         detail_reason=kwargs.get("detail_reason", "테스트 사유"),
         occurred_at=kwargs.get("occurred_at", datetime(2026, 4, 8, 10, 12, 5, tzinfo=UTC)),
         action_status=kwargs.get("action_status", "조치 대기"),
-        is_active=kwargs.get("is_active", True),
     )
 
 
@@ -41,8 +40,8 @@ async def test_active_situations_empty(auth_client: AsyncClient):
 
 async def test_active_situations_returns_active_only(auth_client: AsyncClient):
     patient = await _make_patient()
-    await _make_situation(patient, is_active=True)
-    await _make_situation(patient, is_active=False)
+    await _make_situation(patient, action_status="조치 대기")
+    await _make_situation(patient, action_status="조치 완료")
 
     res = await auth_client.get(ACTIVE_URL)
     assert len(res.json()["data"]["situations"]) == 1

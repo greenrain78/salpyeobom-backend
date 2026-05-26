@@ -10,12 +10,9 @@ async def _make_patient(pid: str = "user_1001", **kwargs) -> Patient:
         age=kwargs.get("age", 78),
         address_full=kwargs.get("address_full", "서울특별시 노원구 상계동 123-4"),
         address_summary=kwargs.get("address_summary", "상계동 123-4"),
-        doc_no="NO.2026-04-08-001",
         manager_name="김재섭",
         management_level="집중 관리군 (1등급)",
         diseases=["고혈압", "초기 치매"],
-        next_visit_time="2026.04.10 (금) 14:00",
-        next_visit_plan="정기 혈압 체크",
     )
 
 
