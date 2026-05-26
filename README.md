@@ -33,12 +33,22 @@ bash scripts/install.sh
 ### 4. 로컬 개발
 
 ```bash
-make dev          # 개발 서버 실행 (uvicorn --reload)
-make test         # 테스트 실행 (SQLite in-memory)
-make check        # lint + typecheck + test (커밋 전 필수)
-make migrate      # aerich upgrade
-make seed         # 데모용 시드 데이터 (user_1001 등)
+# 백엔드 + 프론트엔드 한 번에 (권장)
+.\dev                   # Windows — dev.cmd 래퍼 (uv run python dev.py 와 동일)
+uv run python dev.py    # 직접 실행 (모든 OS)
+# → BE :8000, FE :3000. Ctrl+C 한 번에 둘 다 정리
+
+# 개별 실행
+make dev                # 백엔드만 (uvicorn --reload)
+cd frontend && npm run dev   # 프론트엔드만 (Next.js)
+
+make test               # 테스트 실행 (SQLite in-memory)
+make check              # lint + typecheck + test (커밋 전 필수)
+make migrate            # aerich upgrade
+make seed               # 데모용 시드 데이터 (user_1001 등)
 ```
+
+> 최초 1회: `cd frontend && cp .env.local.example .env.local && npm install`
 
 ### 5. 배포
 
