@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { href: "/", label: "대시보드" },
   { href: "/patients", label: "환자" },
   { href: "/situations", label: "상황" },
+  { href: "/adl-raw", label: "ADL 원시 분석" },
 ];
 
 export function TopNav() {
