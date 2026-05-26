@@ -1,0 +1,401 @@
+{
+  "info": {
+    "name": "Salpyeobom API — Test Collection",
+    "description": "9개 엔드포인트 전체. 가입→로그인→토큰 캡처 후 보호 엔드포인트 호출. 각 요청은 성공 케이스 + 실패 케이스(401/404/422) 분기를 가진다.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "base_url", "value": "http://localhost:8000", "type": "string"},
+    {"key": "access_token", "value": "", "type": "string"},
+    {"key": "test_username", "value": "postman_user", "type": "string"},
+    {"key": "test_email", "value": "postman_user@example.com", "type": "string"},
+    {"key": "test_password", "value": "postmanpass123", "type": "string"},
+    {"key": "patient_id", "value": "user_1001", "type": "string"},
+    {"key": "adl_record_id", "value": "1", "type": "string"}
+  ],
+  "item": [
+    {
+      "name": "1. Auth — Register (Success 201)",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{base_url}}/api/v1/auth/register", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "register"]},
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{test_username}}\",\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "const ts = Date.now();",
+              "pm.collectionVariables.set('test_username', 'postman_user_' + ts);",
+              "pm.collectionVariables.set('test_email', 'postman_user_' + ts + '@example.com');"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('hashed_password not exposed', () => pm.expect(body).to.not.have.property('hashed_password'));",
+              "pm.test('username matches', () => pm.expect(body.username).to.eql(pm.variables.get('test_username')));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "1b. Auth — Register Duplicate (Fail 409)",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{base_url}}/api/v1/auth/register", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "register"]},
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{test_username}}\",\n  \"email\": \"other@example.com\",\n  \"password\": \"{{test_password}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": ["pm.test('Status 409', () => pm.response.to.have.status(409));"],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "1c. Auth — Register Short Password (Fail 422)",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{base_url}}/api/v1/auth/register", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "register"]},
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"shortpw_user\",\n  \"email\": \"sp@example.com\",\n  \"password\": \"short\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": ["pm.test('Status 422', () => pm.response.to.have.status(422));"],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Auth — Login (Success 200, captures token)",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{base_url}}/api/v1/auth/login", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "login"]},
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{test_username}}\",\n  \"password\": \"{{test_password}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('access_token present', () => pm.expect(body.access_token).to.be.a('string'));",
+              "pm.collectionVariables.set('access_token', body.access_token);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2b. Auth — Login Wrong Password (Fail 401)",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{base_url}}/api/v1/auth/login", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "login"]},
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{test_username}}\",\n  \"password\": \"wrongpassword\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Auth — Me (Success 200)",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+        "url": {"raw": "{{base_url}}/api/v1/auth/me", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "me"]}
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('hashed_password not exposed', () => pm.expect(pm.response.json()).to.not.have.property('hashed_password'));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3b. Auth — Me No Token (Fail 401/403)",
+      "request": {
+        "method": "GET",
+        "url": {"raw": "{{base_url}}/api/v1/auth/me", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "me"]}
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": ["pm.test('Status 401 or 403', () => pm.expect([401,403]).to.include(pm.response.code));"],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Dashboard — Summary (Success 200)",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+        "url": {"raw": "{{base_url}}/api/v1/dashboard/summary", "host": ["{{base_url}}"], "path": ["api", "v1", "dashboard", "summary"]}
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('has total_monitoring_count', () => pm.expect(pm.response.json().data).to.have.property('total_monitoring_count'));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4b. Dashboard — Summary No Auth (Fail 401/403)",
+      "request": {
+        "method": "GET",
+        "url": {"raw": "{{base_url}}/api/v1/dashboard/summary", "host": ["{{base_url}}"], "path": ["api", "v1", "dashboard", "summary"]}
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": ["pm.test('Status 401 or 403', () => pm.expect([401,403]).to.include(pm.response.code));"],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Patients — List (Success 200)",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+        "url": {"raw": "{{base_url}}/api/v1/patients?page=1&limit=10", "host": ["{{base_url}}"], "path": ["api", "v1", "patients"], "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]}
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('has total_count', () => pm.expect(pm.response.json().data).to.have.property('total_count'));",
+              "const body = pm.response.json();",
+              "if (body.data && body.data.patients && body.data.patients.length > 0) {",
+              "  pm.collectionVariables.set('patient_id', body.data.patients[0].patient_id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5b. Patients — List No Auth (Fail 401/403)",
+      "request": {
+        "method": "GET",
+        "url": {"raw": "{{base_url}}/api/v1/patients", "host": ["{{base_url}}"], "path": ["api", "v1", "patients"]}
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": ["pm.test('Status 401 or 403', () => pm.expect([401,403]).to.include(pm.response.code));"],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Patients — Details (Success 200)",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+        "url": {"raw": "{{base_url}}/api/v1/patients/{{patient_id}}/details", "host": ["{{base_url}}"], "path": ["api", "v1", "patients", "{{patient_id}}", "details"]}
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6b. Patients — Details Not Found (Fail 404)",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+        "url": {"raw": "{{base_url}}/api/v1/patients/ghost-id/details", "host": ["{{base_url}}"], "path": ["api", "v1", "patients", "ghost-id", "details"]}
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": ["pm.test('Status 404', () => pm.response.to.have.status(404));"],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Situations — Active (Success 200)",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+        "url": {"raw": "{{base_url}}/api/v1/situations/active?limit=20", "host": ["{{base_url}}"], "path": ["api", "v1", "situations", "active"], "query": [{"key": "limit", "value": "20"}]}
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('situations array present', () => pm.expect(pm.response.json().data.situations).to.be.an('array'));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "7b. Situations — Active No Auth (Fail 401/403)",
+      "request": {
+        "method": "GET",
+        "url": {"raw": "{{base_url}}/api/v1/situations/active", "host": ["{{base_url}}"], "path": ["api", "v1", "situations", "active"]}
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": ["pm.test('Status 401 or 403', () => pm.expect([401,403]).to.include(pm.response.code));"],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. ADL Raw — List (Success 200)",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+        "url": {"raw": "{{base_url}}/api/v1/adl-raw?page=1&page_size=50", "host": ["{{base_url}}"], "path": ["api", "v1", "adl-raw"], "query": [{"key": "page", "value": "1"}, {"key": "page_size", "value": "50"}]}
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const d = pm.response.json().data;",
+              "pm.test('has aggregates', () => pm.expect(d).to.include.keys('total','source_type_counts','unique_recipient_count'));",
+              "if (d && d.items && d.items.length > 0) {",
+              "  pm.collectionVariables.set('adl_record_id', String(d.items[0].id));",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "8b. ADL Raw — List Invalid Age Range (Fail 422)",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+        "url": {"raw": "{{base_url}}/api/v1/adl-raw?age_min=90&age_max=70", "host": ["{{base_url}}"], "path": ["api", "v1", "adl-raw"], "query": [{"key": "age_min", "value": "90"}, {"key": "age_max", "value": "70"}]}
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": ["pm.test('Status 422', () => pm.response.to.have.status(422));"],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. ADL Raw — Detail (Success 200)",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+        "url": {"raw": "{{base_url}}/api/v1/adl-raw/{{adl_record_id}}", "host": ["{{base_url}}"], "path": ["api", "v1", "adl-raw", "{{adl_record_id}}"]}
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "9b. ADL Raw — Detail Not Found (Fail 404)",
+      "request": {
+        "method": "GET",
+        "header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+        "url": {"raw": "{{base_url}}/api/v1/adl-raw/99999", "host": ["{{base_url}}"], "path": ["api", "v1", "adl-raw", "99999"]}
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": ["pm.test('Status 404', () => pm.response.to.have.status(404));"],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    }
+  ]
+}

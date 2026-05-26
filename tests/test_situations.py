@@ -53,9 +53,9 @@ async def test_active_situations_fields(auth_client: AsyncClient):
         patient, category="낙상 의심", occurred_at=datetime(2026, 4, 8, 11, 33, 45, tzinfo=UTC)
     )
 
-    item = (
-        res.json()["data"]["situations"][0] if (res := await auth_client.get(ACTIVE_URL)) else None
-    )
+    res = await auth_client.get(ACTIVE_URL)
+    assert res.status_code == 200
+    item = res.json()["data"]["situations"][0]
     assert item["patient_id"] == "p1"
     assert item["name"] == "김순자"
     assert item["category"] == "낙상 의심"
