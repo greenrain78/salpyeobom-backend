@@ -1,0 +1,13 @@
+# 기본: 텍스트 파일은 git이 자동 판별, 저장소에는 LF로 통일
+* text=auto eol=lf
+
+# 잠금 파일·셸 스크립트는 LF 고정
+uv.lock         text eol=lf
+*.sh            text eol=lf
+
+# Windows 배치·PowerShell은 CRLF
+*.bat           text eol=crlf
+*.ps1           text eol=crlf
+
+# Jupyter 노트북은 바이너리 취급 (JSON 줄바꿈 변환 회피)
+*.ipynb         -text
