@@ -1,8 +1,24 @@
 # 살펴봄 (salpyeobom-backend)
 
-고령자 원격 모니터링 백엔드 API. FastAPI(async) + Tortoise ORM + PostgreSQL.
+고령자 원격 모니터링 백엔드 API. ADL 원시 데이터를 수집·전처리하고 AI 모델 추론
+결과를 바탕으로 복지사 대시보드에 실시간 위험도(정상/주의/초고위험)를 제공한다.
 
 상세 런타임 규칙은 [`CLAUDE.md`](./CLAUDE.md), DB 스키마는 [`docs/database-schema.md`](./docs/database-schema.md) 참고.
+
+---
+
+## 기술 스택
+
+| 영역 | 기술 |
+|------|------|
+| 백엔드 | FastAPI (async), Tortoise ORM, asyncpg, Aerich |
+| 데이터베이스 | PostgreSQL (운영), SQLite in-memory (테스트) |
+| 인증 | JWT (python-jose, HS256), bcrypt |
+| 프론트엔드 | Next.js 16, TypeScript, Tailwind CSS, shadcn/ui, Recharts |
+| AI / 데이터 | Sliding Window 전처리, Hierarchical GRU AutoEncoder (Track A/B) |
+| 패키지 관리 | uv (Python 3.11+), npm |
+| 품질 | pytest + pytest-asyncio, ruff, mypy, pre-commit |
+| 운영 | systemd, Make 기반 워크플로우 |
 
 ---
 
@@ -90,3 +106,14 @@ docs/                # database-schema.md 등 레퍼런스
 notebooks/           # ADL 데이터 적재·검증·분석 노트북
 migrations/          # aerich 마이그레이션 (gitignore)
 ```
+
+---
+
+## 팀원
+
+| 이름 | 역할 | 담당 |
+|------|------|------|
+| 김대원 | AI / 데이터 | 데이터 전처리(Sliding Window) 파이프라인 구축, Hierarchical GRU AE 모델 아키텍처 설계, Track A/B 학습 및 파인튜닝 코드 구현 |
+| 김재섭 | 프론트엔드 / 기획 | 복지사 대시보드 UI/UX 설계, 실시간 위험도 레벨(정상/주의/초고위험) 연동, 어텐션 가중치 기반 직관적 시각화(Heatmap, Bar chart) 컴포넌트 구현 |
+| 이지민 | 백엔드 / DB | PostgreSQL 비동기 연동, 1시간 주기 실시간 데이터 스트리밍 수신, sliding window 텐서 적재 및 AI 모델 추론 API 파이프라인 스크립트 완성 |
+| 윤아림 | PM | 프로젝트 요구사항 정의, 일정 관리, 최종 결과 분석, 문서 작성 및 발표 총괄 |
