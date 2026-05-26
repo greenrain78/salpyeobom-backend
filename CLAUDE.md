@@ -86,14 +86,14 @@ await conn.execute("SELECT * FROM patients WHERE ...")
 1. `app/schemas/`에 요청/응답 Pydantic 스키마 먼저 정의
 2. `app/routers/`에 라우터 함수 구현
 3. `tests/`에 테스트 작성 (최소: 성공 케이스 + 인증 실패 케이스)
-4. `make check` 통과 확인 후 커밋
+4. `poe check` 통과 확인 후 커밋
 
 ### DB 스키마 변경 패턴
 > **모델/스키마 작업 전 `docs/database-schema.md` 를 먼저 읽을 것.** 4개 테이블의 구조·ERD·필드 의미가 한 문서에 정리되어 있어, `app/models/` 의 여러 파일을 일일이 열지 않아도 전체 스키마를 파악할 수 있다.
 
 1. `app/models/`에서 모델 수정
 2. `uv run aerich migrate` 실행 → `migrations/` 에 새 마이그레이션 파일 생성
-3. `make migrate` (= `aerich upgrade`) 실행 → 마이그레이션을 DB에 적용
+3. `poe migrate` (= `aerich upgrade`) 실행 → 마이그레이션을 DB에 적용
 4. `migrations/` 는 `.gitignore` 처리 — 커밋하지 않고 `app/models/` 의 모델 변경만 커밋
 5. **`docs/database-schema.md`** 의 해당 테이블 표(필드/제약/관계)를 변경 내용에 맞게 갱신 후 `app/models/` 변경과 함께 커밋
    - `app/models/*.py` 를 편집하면 PostToolUse 훅이 이 문서 갱신을 자동으로 상기시킨다 (`.claude/settings.json`)
@@ -102,17 +102,25 @@ await conn.execute("SELECT * FROM patients WHERE ...")
 
 ## 개발 워크플로우
 
+태스크 러너는 [poethepoet](https://poethepoet.natn.io/) (`poe`). 정의는 `pyproject.toml`의 `[tool.poe.tasks]`.
+
 ```bash
+# 최초 1회 (머신당) — Windows / WSL / Ubuntu 동일
+uv tool install poethepoet
+
 # 개발 시작
-make dev            # 개발 서버 실행
+poe dev             # 개발 서버 실행 (auto-reload)
 
 # 코드 작성 후
-make fix            # ruff 자동 수정 (포맷 + 린트 autofix)
-make check          # 전체 품질 검사 (lint + typecheck + test)
+poe fix             # ruff 자동 수정 (포맷 + 린트 autofix)
+poe check           # 전체 품질 검사 (lint + format + typecheck + test)
 
 # 커밋 전
-make check          # 반드시 통과해야 커밋 가능 (pre-commit hook이 자동 검사)
+poe check           # 반드시 통과해야 커밋 가능 (pre-commit hook이 자동 검사)
 ```
+
+> `poe`만 입력하면 사용 가능한 전체 태스크 목록이 출력된다.
+> `uv tool install` 없이 쓰려면 `uv run poe <task>` 폴백도 가능 (이미 dev deps에 포함).
 
 ---
 
@@ -147,8 +155,7 @@ salpyeobom-backend/
 ├── migrations/              # aerich 마이그레이션 (.gitignore 처리 — git 추적 안 함)
 ├── CLAUDE.md                # 이 파일 — AI 런타임 설정
 ├── AGENTS.md                # AI 에이전트 작업 가이드
-├── pyproject.toml           # 의존성 + 도구 설정
-├── Makefile                 # 개발 명령어
+├── pyproject.toml           # 의존성 + 도구 설정 + poe 태스크
 └── .pre-commit-config.yaml  # pre-commit 훅
 ```
 
@@ -188,6 +195,6 @@ secret = settings.SECRET_KEY
 | raw SQL | Tortoise ORM `.filter()`, `.get()`, `.create()` |
 | 하드코딩 비밀값 | `settings.secret_key` |
 | `print()` 디버깅 | logger 사용 또는 제거 |
-| 마이그레이션 없는 모델 변경 | `uv run aerich migrate` 로 생성 후 `make migrate` 로 적용 |
+| 마이그레이션 없는 모델 변경 | `uv run aerich migrate` 로 생성 후 `poe migrate` 로 적용 |
 | 테스트 없는 엔드포인트 | 반드시 `tests/test_*.py` 작성 |
 | `git push --force` | PR + 리뷰 |

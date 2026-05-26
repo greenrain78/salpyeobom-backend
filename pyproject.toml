@@ -21,6 +21,7 @@ dev = [
     "mypy>=1.10.0",
     "openpyxl>=3.1.0",
     "pandas>=2.0.0",
+    "poethepoet>=0.29.0",
     "pre-commit>=3.7.0",
     "pytest>=8.2.0",
     "pytest-asyncio>=0.23.0",
@@ -56,3 +57,64 @@ exclude = ["migrations/"]
 tortoise_orm = "app.database.TORTOISE_ORM"
 location = "./migrations"
 src_folder = "./."
+
+# ── poethepoet 태스크 정의 ────────────────────────────────────────────────────
+# 사용법:
+#   uv tool install poethepoet   # 최초 1회 (머신당)
+#   poe <task>                   # 어디서나 (Windows / WSL / Ubuntu)
+#   uv run poe <task>            # 위가 안 될 때 폴백 (이미 dev deps에 포함)
+# 전체 목록: `poe` 단독 실행
+[tool.poe.tasks]
+
+# [개발]
+dev           = { cmd = "uv run uvicorn app.main:app --reload",   help = "개발 서버 실행 (auto-reload)" }
+test          = { cmd = "uv run pytest -v",                       help = "테스트 실행 (커버리지 포함)" }
+migrate       = { cmd = "uv run aerich upgrade",                  help = "DB 마이그레이션 적용" }
+seed-users    = { cmd = "uv run python scripts/seed_users.py",    help = "데모 admin 계정 시드 (멱등)" }
+seed-from-adl = { cmd = "uv run python scripts/seed_from_adl.py", help = "ADL raw 기반 파생 (멱등, 매번 초기화)" }
+notebook      = { cmd = "uv run jupyter lab notebooks/",          help = "JupyterLab 실행 (raw 데이터 분석)" }
+
+# [품질 검사]
+lint         = { cmd = "uv run ruff check app/ tests/",          help = "ruff 린트 검사" }
+format       = { cmd = "uv run ruff format app/ tests/",         help = "ruff 포맷 적용" }
+format-check = { cmd = "uv run ruff format --check app/ tests/", help = "ruff 포맷 검증 (CI용)" }
+typecheck    = { cmd = "uv run mypy app/",                       help = "mypy 타입 체킹" }
+
+[tool.poe.tasks.check]
+help     = "전체 품질 검사 (lint + format-check + typecheck + test)"
+sequence = ["lint", "format-check", "typecheck", "test"]
+
+[tool.poe.tasks.fix]
+help = "ruff 자동 수정 (lint autofix + format)"
+sequence = [
+    { cmd = "uv run ruff check --fix app/ tests/" },
+    { cmd = "uv run ruff format app/ tests/" },
+]
+
+# [배포] — Linux/systemd 전용. Windows에서 실행 시 자연스럽게 실패.
+[tool.poe.tasks.deploy]
+help  = "배포 (git pull → sync → migrate → restart) — Linux 전용"
+shell = "bash scripts/deploy.sh"
+
+[tool.poe.tasks.start]
+help  = "서버 시작 (Linux)"
+shell = "bash scripts/start.sh"
+
+[tool.poe.tasks.stop]
+help  = "서버 중지 (Linux)"
+shell = "bash scripts/stop.sh"
+
+[tool.poe.tasks.restart]
+help = "서버 재시작 (Linux)"
+sequence = [
+    { shell = "bash scripts/stop.sh" },
+    { shell = "bash scripts/start.sh" },
+]
+
+[tool.poe.tasks.status]
+help  = "서버 상태 확인 (Linux)"
+shell = "bash scripts/status.sh"
+
+[tool.poe.tasks.logs]
+help  = "실시간 로그 (Linux + systemd)"
+shell = "sudo journalctl -u salpyeobom-backend -f"

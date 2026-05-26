@@ -18,7 +18,7 @@
 | AI / 데이터 | Sliding Window 전처리, Hierarchical GRU AutoEncoder (Track A/B) |
 | 패키지 관리 | uv (Python 3.11+), npm |
 | 품질 | pytest + pytest-asyncio, ruff, mypy, pre-commit |
-| 운영 | systemd, Make 기반 워크플로우 |
+| 운영 | systemd, poethepoet (`poe`) 태스크 러너 |
 
 ---
 
@@ -48,24 +48,33 @@ bash scripts/install.sh
 
 ### 4. 로컬 개발
 
+태스크 러너는 **`poe` ([poethepoet](https://poethepoet.natn.io/))** — Windows / WSL / Ubuntu 동일 동작.
+
 ```bash
+# 최초 1회 (머신당)
+uv tool install poethepoet
+cd frontend && cp .env.local.example .env.local && npm install && cd ..
+
 # 백엔드 + 프론트엔드 한 번에 (권장)
 .\dev                   # Windows — dev.cmd 래퍼 (uv run python dev.py 와 동일)
 uv run python dev.py    # 직접 실행 (모든 OS)
 # → BE :8000, FE :3000. Ctrl+C 한 번에 둘 다 정리
 
 # 개별 실행
-make dev                # 백엔드만 (uvicorn --reload)
+poe dev                 # 백엔드만 (uvicorn --reload)
 cd frontend && npm run dev   # 프론트엔드만 (Next.js)
 
-make test               # 테스트 실행 (SQLite in-memory)
-make check              # lint + typecheck + test (커밋 전 필수)
-make migrate            # aerich upgrade
-make seed-users         # 데모 admin 계정 시드 (admin/admin1234, 멱등)
-make seed-from-adl      # adl_raw_records → Patient/Situation 파생 (멱등, 매번 초기화)
+poe test                # 테스트 실행 (SQLite in-memory)
+poe check               # lint + format + typecheck + test (커밋 전 필수)
+poe fix                 # ruff 자동 수정 (lint autofix + format)
+poe migrate             # aerich upgrade
+poe seed-users          # 데모 admin 계정 시드 (admin/admin1234, 멱등)
+poe seed-from-adl       # adl_raw_records → Patient/Situation 파생 (멱등, 매번 초기화)
+
+poe                     # 전체 태스크 목록
 ```
 
-> 최초 1회: `cd frontend && cp .env.local.example .env.local && npm install`
+> 폴백: `uv tool install` 없이도 `uv run poe <task>` 로 동일하게 실행 가능 (이미 dev deps에 포함).
 
 ### 5. 배포
 

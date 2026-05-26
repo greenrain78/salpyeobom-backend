@@ -45,7 +45,7 @@
 | 모델 변경 | `docs/database-schema.md` (먼저 읽기 — 전체 스키마 파악) + `models/*.py` + 관련 `schemas/*.py` + 기존 마이그레이션 — 절차는 [CLAUDE.md "DB 스키마 변경 패턴"](./CLAUDE.md#db-스키마-변경-패턴) |
 | DB 구조 조회/질문 | `docs/database-schema.md` (4개 테이블 + ERD + 필드 의미가 한 문서에 정리됨) |
 | 테스트 작성 | `tests/conftest.py` + 대상 `routers/*.py` |
-| 배포 스크립트 | `scripts/` + `Makefile` |
+| 배포 스크립트 | `scripts/` + `pyproject.toml` ([tool.poe.tasks]) |
 
 ---
 
@@ -64,12 +64,12 @@
    → 타입 어노테이션 포함
 
 3. 검증 (Verify)
-   → make fix     # 포맷/린트 자동 수정
-   → make check   # 전체 품질 검사
+   → poe fix     # 포맷/린트 자동 수정
+   → poe check   # 전체 품질 검사
    → 테스트 실패 시 → 수정 루프
 
 4. 완료 (Done)
-   → make check 통과 확인
+   → poe check 통과 확인
    → 변경 내용 요약
 ```
 
@@ -86,7 +86,7 @@
 | 파일 읽기 | `app/`, `tests/`, `scripts/`, 설정 파일 | 코드 이해 |
 | 파일 쓰기 | `app/`, `tests/`, 설정 파일 | 코드 작성 |
 | `uv run *` | 프로젝트 내 | 앱 실행, 테스트, 린터 |
-| `make *` | Makefile 타겟 | 개발 명령어 |
+| `poe *` | pyproject.toml의 [tool.poe.tasks] | 개발 명령어 |
 | `git status`, `git diff`, `git log` | 읽기 전용 | 변경 내용 확인 |
 | `git add`, `git commit` | 명시적 요청 시만 | 커밋 (자동 실행 금지) |
 
@@ -117,11 +117,11 @@
 
 ## 피드백 루프 — 에러 처리 방식
 
-### `make check` 실패 시
+### `poe check` 실패 시
 
 ```bash
 # 1. ruff 오류 → 자동 수정 시도
-make fix
+poe fix
 
 # 2. mypy 오류 → 타입 어노테이션 추가/수정
 # 오류 메시지 읽고 해당 파일의 타입 어노테이션 수정
@@ -138,7 +138,7 @@ uv run pytest --cov=app --cov-report=term-missing
 
 커밋이 거부되면 자동 수정을 시도하고 다시 스테이징:
 ```bash
-make fix
+poe fix
 git add -u
 # 다시 커밋 시도
 ```
@@ -152,4 +152,4 @@ git add -u
 - [ ] 레이어 구조·코딩 규칙·테스트 기준을 지켰는가? → [CLAUDE.md](./CLAUDE.md) 참고
   - 새 엔드포인트는 Pydantic 스키마 + 인증 의존성 + 테스트(성공 + 401) 필수
   - DB 모델 변경 시 aerich 마이그레이션 + `docs/database-schema.md` 갱신 필수
-- [ ] `make check` 가 통과하는가?
+- [ ] `poe check` 가 통과하는가?

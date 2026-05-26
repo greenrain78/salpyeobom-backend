@@ -26,13 +26,13 @@ jobs:
         run: uv sync --dev
 
       - name: Lint (ruff)
-        run: uv run ruff check app/ tests/
+        run: uv run poe lint
 
       - name: Format check (ruff)
-        run: uv run ruff format --check app/ tests/
+        run: uv run poe format-check
 
       - name: Type check (mypy)
-        run: uv run mypy app/
+        run: uv run poe typecheck
 
   test:
     name: Tests

@@ -8,7 +8,7 @@ export PATH="$HOME/.local/bin:$PATH"
 cd "$(dirname "$0")/.."
 
 # 시스템 패키지
-sudo apt-get install -y make curl
+sudo apt-get install -y curl
 
 # uv 설치
 if ! command -v uv &>/dev/null; then

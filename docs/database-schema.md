@@ -268,6 +268,6 @@ FK 관계가 없다. 환자 식별자도 `care_recipient_id`(varchar)로 별도 
 
 ## 5. 스키마 변경 시 주의
 
-- 모델 스키마를 바꾸면 `uv run aerich migrate` → `make migrate` 로 마이그레이션을 생성·적용한다
+- 모델 스키마를 바꾸면 `uv run aerich migrate` → `poe migrate` 로 마이그레이션을 생성·적용한다
   (상세 절차는 `CLAUDE.md` 의 "DB 스키마 변경 패턴" 참조).
 - 모델을 변경했다면 **이 문서(`docs/database-schema.md`)도 함께 갱신**할 것.
