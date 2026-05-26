@@ -54,8 +54,8 @@ bash scripts/deploy.sh
 |--------|--------|----------|
 | `auth` | `/api/v1/auth` | `POST /register`, `POST /login`, `GET /me` |
 | `dashboard` | `/api/v1/dashboard` | `GET /summary` |
-| `patients` | `/api/v1/patients` | `GET ""`, `GET /{id}/details`, `GET /{id}/timeseries` |
-| `situations` | `/api/v1/situations` | `GET /active`, `POST /{id}/actions` |
+| `patients` | `/api/v1/patients` | `GET ""`, `GET /{id}/details` |
+| `situations` | `/api/v1/situations` | `GET /active` |
 
 OpenAPI 문서: 개발 서버 기동 후 `http://localhost:8000/docs`.
 

@@ -43,7 +43,7 @@
 | 새 엔드포인트 추가 | 관련 `routers/*.py` + `schemas/*.py` + `models/*.py` |
 | 인증 수정 | `core/security.py`, `core/dependencies.py`, `routers/auth.py` |
 | 모델 변경 | `docs/database-schema.md` (먼저 읽기 — 전체 스키마 파악) + `models/*.py` + 관련 `schemas/*.py` + 기존 마이그레이션 — 절차는 [CLAUDE.md "DB 스키마 변경 패턴"](./CLAUDE.md#db-스키마-변경-패턴) |
-| DB 구조 조회/질문 | `docs/database-schema.md` (8개 테이블 + ERD + 필드 의미가 한 문서에 정리됨) |
+| DB 구조 조회/질문 | `docs/database-schema.md` (4개 테이블 + ERD + 필드 의미가 한 문서에 정리됨) |
 | 테스트 작성 | `tests/conftest.py` + 대상 `routers/*.py` |
 | 배포 스크립트 | `scripts/` + `Makefile` |
 

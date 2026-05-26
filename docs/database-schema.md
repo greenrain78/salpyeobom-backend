@@ -4,9 +4,10 @@
 > AI 에이전트가 `app/models/` 의 파일을 일일이 읽지 않고도 스키마·관계·필드 의미를
 > 한 번에 파악하도록 작성되었다. **모델 코드를 변경하면 이 문서도 함께 갱신할 것.**
 
-> ⚠️ 분석 레이어(`TimeseriesData` · `AdlDailyRecord` · `AdlHourlyEnvironment`)는
-> 2026-05-26 재설계를 위해 제거되었다. 새 분석 레이어는 미정 — 결정되면 본 문서에
-> 추가한다.
+> ⚠️ 2026-05-26 재설계 차원에서 분석 모델 3종(`TimeseriesData`, `AdlDailyRecord`,
+> `AdlHourlyEnvironment`)과 조치 기록(`SituationAction`)이 제거되었다. 새 설계는
+> 미정 — 결정되면 본 문서에 추가한다. 상세 정리 내역은 "운영·분석 레이어 재설계
+> 진행 중" 섹션 참조.
 
 ---
 
@@ -250,11 +251,18 @@ FK 관계가 없다. 환자 식별자도 `care_recipient_id`(varchar)로 별도 
 - **`source_type = "사망"`** 파일의 일부 hex 컬럼은 정수 `0` 으로만 채워진 행이
   있어 `hex_to_int_list()` 가 `None` 을 반환한다 (디코딩 실패가 아닌 원본 결측).
 
-### 분석 레이어 재설계 진행 중 (2026-05-26~)
+### 운영·분석 레이어 재설계 진행 중 (2026-05-26~)
 
-`TimeseriesData` · `AdlDailyRecord` · `AdlHourlyEnvironment` 세 모델이 가지던
-이상탐지·일별 집계·시간별 환경 책임은 모두 제거되었으며, 새 설계 방향이 확정될 때까지
-보류 상태다. 새 모델·라우터·시더는 결정 후 본 문서에 다시 추가한다.
+다음 항목들이 클린 슬레이트 차원에서 일괄 제거되었으며, 새 설계 방향이 확정될
+때까지 보류 상태다. 새 모델·라우터·시더는 결정 후 본 문서에 다시 추가한다.
+
+- **분석 모델 3종**: `TimeseriesData`, `AdlDailyRecord`, `AdlHourlyEnvironment`
+  (이상탐지·일별 집계·시간별 환경 책임 전체)
+- **조치 기록**: `SituationAction` 모델 + `POST /situations/{id}/actions` 엔드포인트
+  (상태 변경 워크플로 재정의 예정)
+- **운영 메타 6 컬럼**: `Patient.profile_image_url`, `Patient.doc_no`,
+  `Patient.next_visit_time`, `Patient.next_visit_plan`, `Situation.is_active`,
+  `SituationAction.status_update`
 
 ---
 

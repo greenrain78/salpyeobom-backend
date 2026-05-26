@@ -76,7 +76,7 @@ async def get_patient(patient_id, user=Depends(get_current_user)):
 ```python
 # 좋음 — Tortoise ORM API 사용
 patient = await Patient.get_or_none(patient_id=patient_id)
-patients = await Patient.filter(is_active=True).all()
+active = await Situation.filter(action_status__not="조치 완료").all()
 
 # 절대 금지 — raw SQL
 await conn.execute("SELECT * FROM patients WHERE ...")
@@ -89,7 +89,7 @@ await conn.execute("SELECT * FROM patients WHERE ...")
 4. `make check` 통과 확인 후 커밋
 
 ### DB 스키마 변경 패턴
-> **모델/스키마 작업 전 `docs/database-schema.md` 를 먼저 읽을 것.** 8개 테이블의 구조·ERD·필드 의미가 한 문서에 정리되어 있어, `app/models/` 의 여러 파일을 일일이 열지 않아도 전체 스키마를 파악할 수 있다.
+> **모델/스키마 작업 전 `docs/database-schema.md` 를 먼저 읽을 것.** 4개 테이블의 구조·ERD·필드 의미가 한 문서에 정리되어 있어, `app/models/` 의 여러 파일을 일일이 열지 않아도 전체 스키마를 파악할 수 있다.
 
 1. `app/models/`에서 모델 수정
 2. `uv run aerich migrate` 실행 → `migrations/` 에 새 마이그레이션 파일 생성
