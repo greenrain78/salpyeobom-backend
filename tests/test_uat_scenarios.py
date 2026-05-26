@@ -16,7 +16,6 @@ from httpx import AsyncClient
 from app.models.adl_raw import AdlRawRecord
 from app.models.patient import Patient, Situation
 
-
 # ───────────────────────────────────────────────────────────────────────────
 # Scenario 1: 담당자 신규 가입 → 로그인 → 대시보드 확인
 # ───────────────────────────────────────────────────────────────────────────
@@ -112,9 +111,7 @@ async def test_uat_scenario_2_patient_care_flow(auth_client: AsyncClient) -> Non
     )
 
     # Act 1 — 이름 검색
-    search_res = await auth_client.get(
-        "/api/v1/patients", params={"search_name": "김"}
-    )
+    search_res = await auth_client.get("/api/v1/patients", params={"search_name": "김"})
     assert search_res.status_code == 200
     found = search_res.json()["data"]
     assert found["total_count"] == 1
@@ -208,10 +205,10 @@ async def test_uat_scenario_3_adl_analysis_flow(auth_client: AsyncClient) -> Non
 
     # Act 3 — 24h 외출 변환 계약 직접 검증 (라우터가 동일 함수를 사용)
     outgoing_minutes = [0] * 1440
-    outgoing_minutes[0] = 5       # hour 0 +5
-    outgoing_minutes[60] = 3      # hour 1 +3
-    outgoing_minutes[120] = 254   # sentinel — 정제 후 0
-    outgoing_minutes[121] = 255   # sentinel — 정제 후 0
+    outgoing_minutes[0] = 5  # hour 0 +5
+    outgoing_minutes[60] = 3  # hour 1 +3
+    outgoing_minutes[120] = 254  # sentinel — 정제 후 0
+    outgoing_minutes[121] = 255  # sentinel — 정제 후 0
 
     outgoing_24h = aggregate_outgoing_to_24h(outgoing_minutes)
     assert outgoing_24h is not None

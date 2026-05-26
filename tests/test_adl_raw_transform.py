@@ -36,8 +36,8 @@ def test_aggregate_outgoing_to_24h_none() -> None:
 
 def test_aggregate_outgoing_to_24h_basic() -> None:
     data = [0] * 1440
-    data[0] = 5      # minute 0 of hour 0
-    data[30] = 254   # sentinel at minute 30 of hour 0 → cleaned to 0
+    data[0] = 5  # minute 0 of hour 0
+    data[30] = 254  # sentinel at minute 30 of hour 0 → cleaned to 0
     result = aggregate_outgoing_to_24h(data)
     assert result is not None
     assert len(result) == 24

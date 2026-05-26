@@ -76,9 +76,7 @@ async def test_recipients_filter_preserves_full_history_counts(auth_client: Asyn
     # Person Y has only 평소 — should not appear when filtered by source_type=응급.
     await _make_adl(care_recipient_id="Y", source_type="평소", lifeog_date=date(2026, 3, 13))
 
-    res = await auth_client.get(
-        "/api/v1/adl-raw/recipients", params={"source_type": "응급"}
-    )
+    res = await auth_client.get("/api/v1/adl-raw/recipients", params={"source_type": "응급"})
     data = res.json()["data"]
     assert data["total"] == 1
     item = data["items"][0]
@@ -112,9 +110,7 @@ async def test_recipients_filter_by_district(auth_client: AsyncClient):
     await _make_adl(care_recipient_id="N1", district="노원구")
     await _make_adl(care_recipient_id="G1", district="강남구")
 
-    res = await auth_client.get(
-        "/api/v1/adl-raw/recipients", params={"district": "노원구"}
-    )
+    res = await auth_client.get("/api/v1/adl-raw/recipients", params={"district": "노원구"})
     items = res.json()["data"]["items"]
     assert len(items) == 1
     assert items[0]["care_recipient_id"] == "N1"
@@ -125,9 +121,7 @@ async def test_recipients_filter_by_age_range(auth_client: AsyncClient):
     await _make_adl(care_recipient_id="mid", age=80)
     await _make_adl(care_recipient_id="old", age=90)
 
-    res = await auth_client.get(
-        "/api/v1/adl-raw/recipients", params={"age_min": 75, "age_max": 85}
-    )
+    res = await auth_client.get("/api/v1/adl-raw/recipients", params={"age_min": 75, "age_max": 85})
     items = res.json()["data"]["items"]
     assert len(items) == 1
     assert items[0]["care_recipient_id"] == "mid"
@@ -144,16 +138,12 @@ async def test_recipients_filter_by_q(auth_client: AsyncClient):
 
 
 async def test_recipients_age_min_greater_than_max_returns_422(auth_client: AsyncClient):
-    res = await auth_client.get(
-        "/api/v1/adl-raw/recipients", params={"age_min": 90, "age_max": 70}
-    )
+    res = await auth_client.get("/api/v1/adl-raw/recipients", params={"age_min": 90, "age_max": 70})
     assert res.status_code == 422
 
 
 async def test_recipients_page_size_over_200_returns_422(auth_client: AsyncClient):
-    res = await auth_client.get(
-        "/api/v1/adl-raw/recipients", params={"page_size": 201}
-    )
+    res = await auth_client.get("/api/v1/adl-raw/recipients", params={"page_size": 201})
     assert res.status_code == 422
 
 
@@ -165,15 +155,9 @@ async def test_recipients_pagination(auth_client: AsyncClient):
             lifeog_date=date(2026, 3, 1) if i % 2 == 0 else date(2026, 3, 2),
         )
 
-    res1 = await auth_client.get(
-        "/api/v1/adl-raw/recipients", params={"page": 1, "page_size": 25}
-    )
-    res2 = await auth_client.get(
-        "/api/v1/adl-raw/recipients", params={"page": 2, "page_size": 25}
-    )
-    res3 = await auth_client.get(
-        "/api/v1/adl-raw/recipients", params={"page": 3, "page_size": 25}
-    )
+    res1 = await auth_client.get("/api/v1/adl-raw/recipients", params={"page": 1, "page_size": 25})
+    res2 = await auth_client.get("/api/v1/adl-raw/recipients", params={"page": 2, "page_size": 25})
+    res3 = await auth_client.get("/api/v1/adl-raw/recipients", params={"page": 3, "page_size": 25})
 
     assert res1.json()["data"]["total"] == 60
     assert len(res1.json()["data"]["items"]) == 25
@@ -313,9 +297,7 @@ def test_detail_adl_raw_outgoing_sentinel_stripped():
 
     outgoing_24h = aggregate_outgoing_to_24h([254] * 1440)
     assert outgoing_24h is not None
-    assert all(v == 0 for v in outgoing_24h), (
-        f"Expected all zeros but got: {outgoing_24h}"
-    )
+    assert all(v == 0 for v in outgoing_24h), f"Expected all zeros but got: {outgoing_24h}"
 
 
 def test_detail_adl_raw_outgoing_24h_aggregation():

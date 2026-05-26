@@ -1,5 +1,6 @@
 from collections import Counter, defaultdict
 from datetime import date
+from typing import cast
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
@@ -111,9 +112,7 @@ async def list_adl_raw(
     total = await qs.count()
 
     agg_rows = await qs.only("source_type", "care_recipient_id")
-    source_type_counts: dict[str, int] = dict(
-        Counter(r.source_type for r in agg_rows)
-    )
+    source_type_counts: dict[str, int] = dict(Counter(r.source_type for r in agg_rows))
     unique_recipient_count = len({r.care_recipient_id for r in agg_rows})
 
     page_rows = await (
@@ -177,22 +176,21 @@ async def list_recipients(
         filter_qs = filter_qs.filter(care_recipient_id__icontains=q)
 
     matching_ids: set[str] = set(
-        await filter_qs.distinct().values_list("care_recipient_id", flat=True)
+        cast(
+            list[str],
+            await filter_qs.distinct().values_list("care_recipient_id", flat=True),
+        )
     )
 
     if not matching_ids:
         return SuccessResponse(
-            data=AdlRawRecipientsData(
-                items=[], total=0, page=page, page_size=page_size
-            )
+            data=AdlRawRecipientsData(items=[], total=0, page=page, page_size=page_size)
         )
 
     # Pass 2 — gather full history rows for those people (filters NOT reapplied,
     # so per-person counts reflect each person's entire history).
-    aggregate_rows = await (
-        AdlRawRecord.filter(care_recipient_id__in=matching_ids).only(
-            *_AGGREGATE_FIELDS
-        )
+    aggregate_rows = await AdlRawRecord.filter(care_recipient_id__in=matching_ids).only(
+        *_AGGREGATE_FIELDS
     )
 
     grouped: dict[str, list[AdlRawRecord]] = defaultdict(list)
@@ -237,9 +235,7 @@ async def list_recipients(
     items = items[start : start + page_size]
 
     return SuccessResponse(
-        data=AdlRawRecipientsData(
-            items=items, total=total, page=page, page_size=page_size
-        )
+        data=AdlRawRecipientsData(items=items, total=total, page=page, page_size=page_size)
     )
 
 
@@ -263,9 +259,7 @@ async def list_recipient_records(
 
     items = [AdlRawRecordSummary.model_validate(r) for r in rows]
     return SuccessResponse(
-        data=AdlRawRecipientRecordsData(
-            care_recipient_id=recipient_id, items=items
-        )
+        data=AdlRawRecipientRecordsData(care_recipient_id=recipient_id, items=items)
     )
 
 

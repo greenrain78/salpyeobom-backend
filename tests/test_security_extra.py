@@ -25,9 +25,7 @@ def test_decode_access_token_rejects_expired_token() -> None:
         "sub": "99",
         "exp": datetime.now(UTC) - timedelta(minutes=1),
     }
-    expired_token = jwt.encode(
-        expired_payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM
-    )
+    expired_token = jwt.encode(expired_payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
     # Act / Assert
     with pytest.raises(JWTError):
