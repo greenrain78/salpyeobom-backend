@@ -45,7 +45,8 @@ cd frontend && npm run dev   # 프론트엔드만 (Next.js)
 make test               # 테스트 실행 (SQLite in-memory)
 make check              # lint + typecheck + test (커밋 전 필수)
 make migrate            # aerich upgrade
-make seed               # 데모용 시드 데이터 (user_1001 등)
+make seed-users         # 데모 admin 계정 시드 (admin/admin1234, 멱등)
+make seed-from-adl      # adl_raw_records → Patient/Situation 파생 (멱등, 매번 초기화)
 ```
 
 > 최초 1회: `cd frontend && cp .env.local.example .env.local && npm install`

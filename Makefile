@@ -1,6 +1,6 @@
 export PATH := $(HOME)/.local/bin:$(PATH)
 
-.PHONY: dev test migrate seed seed-reset notebook deploy start stop restart status logs \
+.PHONY: dev test migrate seed-users seed-from-adl notebook deploy start stop restart status logs \
         lint format typecheck check fix install-hooks help
 
 .DEFAULT_GOAL := help
@@ -12,8 +12,8 @@ help:
 	@echo "  make dev           개발 서버 실행 (auto-reload)"
 	@echo "  make test          테스트 실행 (커버리지 포함)"
 	@echo "  make migrate       DB 마이그레이션 적용"
-	@echo "  make seed          더미 데이터 생성"
-	@echo "  make seed-reset    더미 데이터 초기화 후 재생성"
+	@echo "  make seed-users    데모 admin 계정 시드 (멱등)"
+	@echo "  make seed-from-adl adl_raw_records 기반 Patient/Situation 파생 (멱등, 매번 초기화)"
 	@echo "  make notebook      JupyterLab 실행 (raw 데이터 분석)"
 	@echo ""
 	@echo "  [품질 검사 — 하네스]"
@@ -48,11 +48,11 @@ test:
 migrate:
 	uv run aerich upgrade
 
-seed:
-	uv run python scripts/seed.py
+seed-users:
+	uv run python scripts/seed_users.py
 
-seed-reset:
-	uv run python scripts/seed.py --reset
+seed-from-adl:
+	uv run python scripts/seed_from_adl.py
 
 notebook:
 	uv run jupyter lab notebooks/
