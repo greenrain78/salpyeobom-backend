@@ -11,12 +11,27 @@ from datetime import UTC, datetime
 from tortoise import Tortoise
 
 sys.path.insert(0, ".")
+from app.core.security import hash_password
 from app.database import TORTOISE_ORM
 from app.models.patient import Patient, Situation
+from app.models.user import User
 
 # ---------------------------------------------------------------------------
 # 더미 데이터 정의
 # ---------------------------------------------------------------------------
+
+# 데모/개발용 계정. password 는 평문(시드 시 hash 적용).
+# 운영 배포에는 절대 사용 금지 — .env 의 SECRET_KEY 와 별개로 노출되는 자격증명.
+USERS = [
+    {
+        # 데모 계정 — admin / admin1234 로 로그인.
+        # `.local` TLD 는 pydantic EmailStr (RFC 6762) 검증에서 거부되므로
+        # 반드시 example.com 같이 일반적으로 허용되는 도메인을 사용한다.
+        "username": "admin",
+        "email": "admin@example.com",
+        "password": "admin1234",
+    },
+]
 
 PATIENTS = [
     {
@@ -117,7 +132,24 @@ async def seed(reset: bool = False) -> None:
     if reset:
         await Situation.all().delete()
         await Patient.all().delete()
+        await User.all().delete()
         print("기존 데이터 삭제 완료")
+
+    # 사용자 (데모 계정)
+    created_users = 0
+    for data in USERS:
+        _, created = await User.get_or_create(
+            username=data["username"],
+            defaults={
+                "email": data["email"],
+                "hashed_password": hash_password(data["password"]),
+            },
+        )
+        if created:
+            created_users += 1
+            print(f"사용자 생성: {data['username']} / {data['password']}")
+
+    print(f"사용자: {created_users}명 생성 (총 {await User.all().count()}명)")
 
     # 환자
     created_patients = 0
