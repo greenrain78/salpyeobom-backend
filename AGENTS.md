@@ -42,7 +42,7 @@
 |------|------------|
 | 새 엔드포인트 추가 | 관련 `routers/*.py` + `schemas/*.py` + `models/*.py` |
 | 인증 수정 | `core/security.py`, `core/dependencies.py`, `routers/auth.py` |
-| 모델 변경 | `docs/database-schema.md` (먼저 읽기 — 전체 스키마 파악) + `models/*.py` + 관련 `schemas/*.py` + 기존 마이그레이션 |
+| 모델 변경 | `docs/database-schema.md` (먼저 읽기 — 전체 스키마 파악) + `models/*.py` + 관련 `schemas/*.py` + 기존 마이그레이션 — 절차는 [CLAUDE.md "DB 스키마 변경 패턴"](./CLAUDE.md#db-스키마-변경-패턴) |
 | DB 구조 조회/질문 | `docs/database-schema.md` (8개 테이블 + ERD + 필드 의미가 한 문서에 정리됨) |
 | 테스트 작성 | `tests/conftest.py` + 대상 `routers/*.py` |
 | 배포 스크립트 | `scripts/` + `Makefile` |
@@ -92,14 +92,8 @@
 
 ### 금지된 도구
 
-| 도구 | 이유 |
-|------|------|
-| `git push --force` | 원격 히스토리 파괴 위험 |
-| `DROP TABLE`, `TRUNCATE` | 데이터 손실 |
-| `rm -rf` | 파일 영구 삭제 |
-| `sudo rm` | 시스템 파일 삭제 |
-| `.env` 파일 직접 수정 | 프로덕션 비밀 노출 |
-| 외부 API 직접 호출 | 의도치 않은 사이드이펙트 |
+→ 코드/데이터 안전 관련 절대 금지 항목은 [CLAUDE.md "절대 규칙"](./CLAUDE.md#절대-규칙-위반-불가) 참고.
+추가로 AI 작업 시 다음도 금지: `rm -rf`, `sudo rm`(시스템 파일 삭제), 의도치 않은 외부 API 직접 호출.
 
 ---
 
@@ -155,10 +149,7 @@ git add -u
 
 - [ ] 요청 의도가 명확한가? (모호하면 먼저 질문)
 - [ ] 영향 받는 파일 목록을 파악했는가?
-- [ ] DB 모델 변경 시 aerich 마이그레이션을 생성했는가?
-- [ ] DB 모델 변경 시 `docs/database-schema.md` 의 테이블 표를 갱신했는가?
-- [ ] 새 엔드포인트에 Pydantic 스키마가 있는가?
-- [ ] 인증이 필요한 엔드포인트에 `Depends(get_current_user)`가 있는가?
-- [ ] 테스트를 작성했는가? (최소 성공 + 401 케이스)
-- [ ] `make check`가 통과하는가?
-- [ ] 환경변수 하드코딩이 없는가?
+- [ ] 레이어 구조·코딩 규칙·테스트 기준을 지켰는가? → [CLAUDE.md](./CLAUDE.md) 참고
+  - 새 엔드포인트는 Pydantic 스키마 + 인증 의존성 + 테스트(성공 + 401) 필수
+  - DB 모델 변경 시 aerich 마이그레이션 + `docs/database-schema.md` 갱신 필수
+- [ ] `make check` 가 통과하는가?
