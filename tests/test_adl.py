@@ -1,9 +1,9 @@
-from datetime import UTC, date, datetime
+from datetime import date
 
 import pytest
 from tortoise.exceptions import IntegrityError
 
-from app.models.adl import AdlDailyRecord, AdlHourlyEnvironment, AdlRawIngest
+from app.models.adl import AdlDailyRecord, AdlHourlyEnvironment
 from app.models.patient import Patient
 
 
@@ -16,31 +16,6 @@ async def _make_patient(pid: str = "p_adl_001") -> Patient:
         address_summary="미아동 10-1",
         phone_number="01021379180",
     )
-
-
-async def test_adl_raw_ingest_create(client):
-    patient = await _make_patient()
-    raw = await AdlRawIngest.create(
-        patient=patient,
-        device_id="01021379180",
-        gateway_mac="6044197d21a4",
-        device_ts=datetime(2021, 3, 17, 10, 14, 54, tzinfo=UTC),
-        payload={"header": {"deviceId": "01021379180"}, "data": {"numOfSensors": 4}},
-    )
-    assert raw.id is not None
-    assert raw.is_processed is False
-    assert raw.device_id == "01021379180"
-
-
-async def test_adl_raw_ingest_patient_nullable(client):
-    raw = await AdlRawIngest.create(
-        patient=None,
-        device_id="unknown_device",
-        gateway_mac="aabbccddeeff",
-        device_ts=datetime(2021, 3, 17, 10, 0, 0, tzinfo=UTC),
-        payload={},
-    )
-    assert raw.patient_id is None
 
 
 async def test_adl_daily_record_create(client):

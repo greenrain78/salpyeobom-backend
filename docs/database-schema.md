@@ -13,7 +13,7 @@
 | DBMS | PostgreSQL |
 | ORM | Tortoise ORM (async) + asyncpg |
 | 마이그레이션 | Aerich |
-| 테이블 수 | 8개 (+ `aerich` 마이그레이션 추적 테이블, 자동 생성) |
+| 테이블 수 | 7개 (+ `aerich` 마이그레이션 추적 테이블, 자동 생성) |
 
 ### 모델 파일 ↔ 테이블 매핑
 
@@ -24,7 +24,6 @@
 | `app/models/patient.py` | `Situation` | `situations` | 환자/모니터링 |
 | `app/models/patient.py` | `SituationAction` | `situation_actions` | 환자/모니터링 |
 | `app/models/patient.py` | `TimeseriesData` | `timeseries_data` | 환자/모니터링 |
-| `app/models/adl.py` | `AdlRawIngest` | `adl_raw_ingest` | ADL 파이프라인 |
 | `app/models/adl.py` | `AdlDailyRecord` | `adl_daily_records` | ADL 파이프라인 |
 | `app/models/adl.py` | `AdlHourlyEnvironment` | `adl_hourly_environment` | ADL 파이프라인 |
 | `app/models/adl_raw.py` | `AdlRawRecord` | `adl_raw_records` | ADL 원시 샘플 |
@@ -40,7 +39,6 @@ erDiagram
     Patient ||--o{ Situation : "situations"
     Situation ||--o{ SituationAction : "actions"
     Patient ||--o{ TimeseriesData : "timeseries"
-    Patient ||--o{ AdlRawIngest : "raw_ingests (nullable, SET_NULL)"
     Patient ||--o{ AdlDailyRecord : "adl_records (CASCADE)"
     AdlDailyRecord ||--o{ AdlHourlyEnvironment : "hourly_env (CASCADE)"
 
@@ -68,11 +66,6 @@ erDiagram
         string patient_id FK
         date date
         float mae_score
-    }
-    AdlRawIngest {
-        int id PK
-        string patient_id FK "nullable"
-        json payload
     }
     AdlDailyRecord {
         int id PK
@@ -140,7 +133,7 @@ PK가 정수 auto-increment가 아닌 **외부 시스템 ID 문자열**(`patient
 | `next_visit_time` | varchar(64) | null | 다음 방문 시간 | `"2026-05-22 14:00"` |
 | `next_visit_plan` | text | null | 다음 방문 계획 메모 | `"혈압약 처방 확인"` |
 
-**역참조**: `situations`, `timeseries`, `raw_ingests`, `adl_records`
+**역참조**: `situations`, `timeseries`, `adl_records`
 
 #### `situations` (`Situation`)
 
@@ -188,31 +181,13 @@ PK가 정수 auto-increment가 아닌 **외부 시스템 ID 문자열**(`patient
 
 ### 도메인 3 — ADL 파이프라인
 
-ADL(Activities of Daily Living, 일상생활활동) 데이터를 3단계로 저장한다:
+ADL(Activities of Daily Living, 일상생활활동) 데이터를 2단계로 저장한다:
 
 ```
-adl_raw_ingest        원본 JSON 임시 저장 (개발용, AI 파이프라인 완성 후 삭제 예정)
-       ↓ (집계)
 adl_daily_records     일별 집계 피처 — AI 학습/예측 입력값
        ↓ (1:24)
 adl_hourly_environment 시간별 환경 센서 (하루 24행)
 ```
-
-#### `adl_raw_ingest` (`AdlRawIngest`)
-
-디바이스에서 수신한 원본 ADL JSON 페이로드 임시 저장소.
-⚠️ **개발용 임시 테이블** — AI 파이프라인 완성 후 삭제 예정.
-
-| 필드 | 타입 | 제약 | 의미 | 예시값 |
-|------|------|------|------|--------|
-| `id` | int | PK, auto | 레코드 ID | `1` |
-| `patient_id` | varchar(64) | FK → `patients`, **null**, on_delete **SET_NULL** | 대상 환자 (related_name `raw_ingests`) | `"user_1001"` |
-| `device_id` | varchar(32) | NOT NULL | 디바이스 ID | `"DEV-0042"` |
-| `gateway_mac` | varchar(20) | NOT NULL | 게이트웨이 MAC 주소 | `"AA:BB:CC:DD:EE:FF"` |
-| `received_at` | timestamptz | auto_now_add | 서버 수신 시각 | `2026-05-18T03:00:00Z` |
-| `device_ts` | timestamptz | NOT NULL | 디바이스 측 타임스탬프 | `2026-05-18T02:59:50Z` |
-| `payload` | jsonb | NOT NULL | 원본 JSON 페이로드 | `{"sleep": {...}, "bath": {...}}` |
-| `is_processed` | bool | default `false` | 집계 처리 완료 여부 | `false` |
 
 #### `adl_daily_records` (`AdlDailyRecord`)
 
@@ -373,13 +348,11 @@ adl_hourly_environment 시간별 환경 센서 (하루 24행)
 
 ## 4. 설계 노트
 
-### ADL 3중 저장 전략
+### ADL 2단 저장 전략
 
 ADL 데이터는 가공 단계별로 별도 테이블에 저장된다.
 
-- **`adl_raw_ingest`** — 디바이스 원본 JSON. 개발용 임시 테이블로, AI 파이프라인이 완성되면
-  삭제 예정이다. `payload` 가 가공되지 않은 jsonb 그대로다.
-- **`adl_daily_records`** — 원본을 하루 단위로 집계한 피처. AI 이상탐지 모델의 직접 입력값.
+- **`adl_daily_records`** — 하루 단위로 집계한 피처. AI 이상탐지 모델의 직접 입력값.
   환자별 날짜당 1행(`unique_together`)이 보장된다.
 - **`adl_hourly_environment`** — 일별 레코드에 딸린 시간별 환경 센서값(24행/일).
 

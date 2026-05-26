@@ -4,24 +4,6 @@ from tortoise import fields
 from tortoise.models import Model
 
 
-class AdlRawIngest(Model):
-    """원본 ADL JSON 임시 저장 (개발용 — AI 파이프라인 완성 후 삭제 예정)"""
-
-    id = fields.IntField(primary_key=True)
-    patient: Any = fields.ForeignKeyField(
-        "models.Patient", related_name="raw_ingests", null=True, on_delete=fields.SET_NULL
-    )
-    device_id = fields.CharField(max_length=32)
-    gateway_mac = fields.CharField(max_length=20)
-    received_at = fields.DatetimeField(auto_now_add=True)
-    device_ts = fields.DatetimeField()
-    payload: Any = fields.JSONField()
-    is_processed = fields.BooleanField(default=False)
-
-    class Meta:
-        table = "adl_raw_ingest"
-
-
 class AdlDailyRecord(Model):
     """일별 ADL 집계 피처 — AI 학습/예측 입력값"""
 
