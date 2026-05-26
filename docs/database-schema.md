@@ -17,7 +17,7 @@
 | DBMS | PostgreSQL |
 | ORM | Tortoise ORM (async) + asyncpg |
 | 마이그레이션 | Aerich |
-| 테이블 수 | 5개 (+ `aerich` 마이그레이션 추적 테이블, 자동 생성) |
+| 테이블 수 | 4개 (+ `aerich` 마이그레이션 추적 테이블, 자동 생성) |
 
 ### 모델 파일 ↔ 테이블 매핑
 
@@ -26,7 +26,6 @@
 | `app/models/user.py` | `User` | `users` | 인증 |
 | `app/models/patient.py` | `Patient` | `patients` | 환자/모니터링 |
 | `app/models/patient.py` | `Situation` | `situations` | 환자/모니터링 |
-| `app/models/patient.py` | `SituationAction` | `situation_actions` | 환자/모니터링 |
 | `app/models/adl_raw.py` | `AdlRawRecord` | `adl_raw_records` | ADL 원시 샘플 |
 
 모델 등록은 `app/database.py` 의 `MODELS` 리스트에서 관리된다.
@@ -38,7 +37,6 @@
 ```mermaid
 erDiagram
     Patient ||--o{ Situation : "situations"
-    Situation ||--o{ SituationAction : "actions"
 
     User {
         int id PK
@@ -54,10 +52,6 @@ erDiagram
         int situation_id PK
         string patient_id FK
         string category
-    }
-    SituationAction {
-        int id PK
-        int situation_id FK
     }
     AdlRawRecord {
         int id PK
@@ -126,20 +120,6 @@ PK가 정수 auto-increment가 아닌 **외부 시스템 ID 문자열**(`patient
 | `occurred_at` | timestamptz | NOT NULL | 발생 시각 | `2026-04-08T11:33:45Z` |
 | `action_status` | varchar(16) | default `"조치 대기"` | 조치 진행 상태 (활성 여부의 단일 출처 — `"조치 완료"` = 비활성) | `"조치 대기"`, `"현장 출동"`, `"조치 완료"` |
 | `created_at` | timestamptz | auto_now_add | 레코드 생성 시각 | `2026-04-08T11:34:00Z` |
-
-**역참조**: `actions`
-
-#### `situation_actions` (`SituationAction`)
-
-특정 상황에 대해 취해진 조치 기록. 상황 1 : N 조치.
-
-| 필드 | 타입 | 제약 | 의미 | 예시값 |
-|------|------|------|------|--------|
-| `id` | int | PK, auto | 조치 고유 ID | `1` |
-| `situation_id` | int | FK → `situations`, NOT NULL | 대상 상황 (related_name `actions`) | `1` |
-| `action_type` | varchar(16) | NOT NULL | 조치 유형 | `"유선 연락"`, `"방문 상담"` |
-| `action_note` | text | null | 조치 메모 | `"보호자에게 연락 완료"` |
-| `created_at` | timestamptz | auto_now_add | 조치 기록 시각 | `2026-04-08T12:00:00Z` |
 
 ---
 

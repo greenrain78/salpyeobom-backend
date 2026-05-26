@@ -12,7 +12,7 @@ from tortoise import Tortoise
 
 sys.path.insert(0, ".")
 from app.database import TORTOISE_ORM
-from app.models.patient import Patient, Situation, SituationAction
+from app.models.patient import Patient, Situation
 
 # ---------------------------------------------------------------------------
 # 더미 데이터 정의
@@ -105,16 +105,6 @@ SITUATIONS = [
     },
 ]
 
-ACTIONS = [
-    {
-        "situation_index": 2,  # user_1005의 상황 (조치 완료)
-        "action_type": "유선 연락",
-        "action_note": "오전 투약 후 수면 중임을 유선으로 확인 완료. 특이사항 없음.",
-        "status_update": "조치 완료",
-    },
-]
-
-
 # ---------------------------------------------------------------------------
 # 실행
 # ---------------------------------------------------------------------------
@@ -125,7 +115,6 @@ async def seed(reset: bool = False) -> None:
     await Tortoise.generate_schemas()
 
     if reset:
-        await SituationAction.all().delete()
         await Situation.all().delete()
         await Patient.all().delete()
         print("기존 데이터 삭제 완료")
@@ -140,37 +129,18 @@ async def seed(reset: bool = False) -> None:
     print(f"환자: {created_patients}명 생성 (총 {await Patient.all().count()}명)")
 
     # 상황
-    situations_objs = []
     created_situations = 0
     for data in SITUATIONS:
         patient = await Patient.get(patient_id=data["patient_id"])
-        situation, created = await Situation.get_or_create(
+        _, created = await Situation.get_or_create(
             patient=patient,
             occurred_at=data["occurred_at"],
             defaults={k: v for k, v in data.items() if k != "patient_id"},
         )
-        situations_objs.append(situation)
         if created:
             created_situations += 1
 
     print(f"상황: {created_situations}건 생성 (총 {await Situation.all().count()}건)")
-
-    # 조치 기록
-    created_actions = 0
-    for data in ACTIONS:
-        situation = situations_objs[data["situation_index"]]
-        _, created = await SituationAction.get_or_create(
-            situation=situation,
-            action_type=data["action_type"],
-            defaults={
-                "action_note": data["action_note"],
-                "status_update": data["status_update"],
-            },
-        )
-        if created:
-            created_actions += 1
-
-    print(f"조치 기록: {created_actions}건 생성")
     print("시드 완료")
 
     await Tortoise.close_connections()

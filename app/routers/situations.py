@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, Query
 
 from app.core.dependencies import get_current_user
-from app.models.patient import Situation, SituationAction
+from app.models.patient import Situation
 from app.schemas.common import SuccessResponse
-from app.schemas.situation import ActionRequest, ActionResponse, ActiveSituationsData, SituationOut
+from app.schemas.situation import ActiveSituationsData, SituationOut
 
 router = APIRouter(
     prefix="/api/v1/situations",
@@ -39,27 +39,3 @@ async def get_active_situations(
             ]
         )
     )
-
-
-@router.post(
-    "/{situation_id}/actions",
-    response_model=ActionResponse,
-    status_code=201,
-)
-async def create_action(
-    body: ActionRequest,
-    situation_id: int = Path(...),
-) -> ActionResponse:
-    situation = await Situation.get_or_none(situation_id=situation_id)
-    if situation is None:
-        raise HTTPException(status_code=404, detail="상황을 찾을 수 없습니다.")
-
-    await SituationAction.create(
-        situation=situation,
-        action_type=body.action_type,
-        action_note=body.action_note,
-    )
-    situation.action_status = body.status_update
-    await situation.save()
-
-    return ActionResponse()

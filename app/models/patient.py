@@ -31,14 +31,3 @@ class Situation(Model):
 
     class Meta:
         table = "situations"
-
-
-class SituationAction(Model):
-    id = fields.IntField(primary_key=True)
-    situation: Any = fields.ForeignKeyField("models.Situation", related_name="actions")
-    action_type = fields.CharField(max_length=16)
-    action_note = fields.TextField(null=True)
-    created_at = fields.DatetimeField(auto_now_add=True)
-
-    class Meta:
-        table = "situation_actions"

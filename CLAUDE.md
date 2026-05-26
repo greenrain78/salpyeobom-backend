@@ -130,20 +130,20 @@ salpyeobom-backend/
 │   │   └── security.py      # JWT + bcrypt
 │   ├── models/
 │   │   ├── user.py          # User 모델
-│   │   ├── patient.py       # Patient, Situation, SituationAction
+│   │   ├── patient.py       # Patient, Situation
 │   │   └── adl_raw.py       # AdlRawRecord (엑셀 샘플 원시 데이터)
 │   ├── routers/
 │   │   ├── auth.py          # POST /register, POST /login, GET /me
 │   │   ├── dashboard.py     # GET /summary
 │   │   ├── patients.py      # GET /, GET /{id}/details
-│   │   └── situations.py    # GET /active, POST /{id}/actions
+│   │   └── situations.py    # GET /active
 │   └── schemas/             # Pydantic 스키마 (입출력 계약)
 ├── tests/
 │   ├── conftest.py          # pytest fixtures (client, auth_client)
 │   └── test_*.py            # 엔드포인트별 테스트
 ├── scripts/                 # 배포/시드 스크립트
 ├── docs/
-│   └── database-schema.md   # DB 스키마 레퍼런스 (5개 테이블 + ERD + 필드 의미)
+│   └── database-schema.md   # DB 스키마 레퍼런스 (4개 테이블 + ERD + 필드 의미)
 ├── migrations/              # aerich 마이그레이션 (.gitignore 처리 — git 추적 안 함)
 ├── CLAUDE.md                # 이 파일 — AI 런타임 설정
 ├── AGENTS.md                # AI 에이전트 작업 가이드
