@@ -232,6 +232,29 @@ async def test_recipient_records_returns_all_dates_for_one_person(
     ]
 
 
+async def test_recipient_records_pagination(auth_client: AsyncClient):
+    # Arrange — 3 records for one recipient, distinct descending dates
+    for day in (10, 11, 12):
+        await _make_adl(care_recipient_id="X", lifeog_date=date(2026, 3, day))
+
+    # Act — page 1 of size 2, then page 2
+    p1 = await auth_client.get(
+        "/api/v1/adl-raw/recipients/X/records", params={"page": 1, "page_size": 2}
+    )
+    p2 = await auth_client.get(
+        "/api/v1/adl-raw/recipients/X/records", params={"page": 2, "page_size": 2}
+    )
+
+    # Assert — total reported across pages; page slices are disjoint and correctly sized
+    d1, d2 = p1.json()["data"], p2.json()["data"]
+    assert d1["total"] == 3 and d2["total"] == 3
+    assert d1["page"] == 1 and d1["page_size"] == 2
+    assert len(d1["items"]) == 2 and len(d2["items"]) == 1
+    ids1 = {it["id"] for it in d1["items"]}
+    ids2 = {it["id"] for it in d2["items"]}
+    assert ids1.isdisjoint(ids2)
+
+
 async def test_recipient_records_omit_timeseries_keys(auth_client: AsyncClient):
     await _make_adl(care_recipient_id="X")
 

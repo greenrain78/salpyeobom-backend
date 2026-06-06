@@ -21,6 +21,7 @@ from tortoise import Tortoise
 sys.path.insert(0, ".")
 from app.database import TORTOISE_ORM
 from app.models.adl_raw import AdlRawRecord
+from app.models.enums import ActionStatus
 from app.models.patient import Patient, Situation
 
 
@@ -81,7 +82,7 @@ async def seed_from_adl() -> None:
                 category="응급",
                 detail_reason=r.emergency_record,
                 occurred_at=datetime.combine(r.emergency_date, time(0, 0), tzinfo=UTC),
-                action_status="조치 완료",
+                action_status=ActionStatus.COMPLETED,
             )
             created_situations += 1
         elif r.source_type == "사망" and r.death_date is not None:
@@ -95,7 +96,7 @@ async def seed_from_adl() -> None:
                 category="사망",
                 detail_reason=r.death_record,
                 occurred_at=datetime.combine(r.death_date, time(0, 0), tzinfo=UTC),
-                action_status="조치 완료",
+                action_status=ActionStatus.COMPLETED,
             )
             created_situations += 1
 

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.core.dependencies import get_current_user
+from app.models.enums import ActionStatus
 from app.models.patient import Situation
 from app.schemas.common import SuccessResponse
 from app.schemas.situation import ActiveSituationsData, SituationOut
@@ -14,12 +15,14 @@ router = APIRouter(
 
 @router.get("/active", response_model=SuccessResponse[ActiveSituationsData])
 async def get_active_situations(
+    page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1),
 ) -> SuccessResponse[ActiveSituationsData]:
     situations = (
-        await Situation.filter(action_status__not="조치 완료")
+        await Situation.filter(action_status__not=ActionStatus.COMPLETED)
         .select_related("patient")
         .order_by("-occurred_at")
+        .offset((page - 1) * limit)
         .limit(limit)
     )
     return SuccessResponse(
