@@ -43,6 +43,9 @@ class AdlRawRecordSummary(BaseModel):
 class AdlRawRecipientRecordsData(BaseModel):
     care_recipient_id: str
     items: list[AdlRawRecordSummary]
+    total: int
+    page: int
+    page_size: int
 
 
 class AdlRawListItem(BaseModel):

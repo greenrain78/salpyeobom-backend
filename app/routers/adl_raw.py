@@ -1,5 +1,3 @@
-from collections import Counter, defaultdict
-from datetime import date
 from typing import cast
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
@@ -10,12 +8,16 @@ from app.schemas.adl_raw import (
     AdlRawDetail,
     AdlRawListData,
     AdlRawListItem,
-    AdlRawRecipientItem,
     AdlRawRecipientRecordsData,
     AdlRawRecipientsData,
     AdlRawRecordSummary,
 )
 from app.schemas.common import SuccessResponse
+from app.services.adl_raw import (
+    apply_adl_filters,
+    build_recipient_items,
+    summarize_list_aggregates,
+)
 from app.services.adl_raw_transform import (
     aggregate_outgoing_to_24h,
     aggregate_sleep_depth_to_24h,
@@ -93,27 +95,21 @@ async def list_adl_raw(
             detail="age_min must be less than or equal to age_max.",
         )
 
-    qs = AdlRawRecord.all()
-    if source_type:
-        qs = qs.filter(source_type=source_type)
-    if sex:
-        qs = qs.filter(sex=sex)
-    if alone:
-        qs = qs.filter(alone=alone)
-    if district:
-        qs = qs.filter(district=district)
-    if age_min is not None:
-        qs = qs.filter(age__gte=age_min)
-    if age_max is not None:
-        qs = qs.filter(age__lte=age_max)
-    if q:
-        qs = qs.filter(care_recipient_id__icontains=q)
+    qs = apply_adl_filters(
+        AdlRawRecord.all(),
+        source_type=source_type,
+        sex=sex,
+        alone=alone,
+        district=district,
+        age_min=age_min,
+        age_max=age_max,
+        q=q,
+    )
 
     total = await qs.count()
 
     agg_rows = await qs.only("source_type", "care_recipient_id")
-    source_type_counts: dict[str, int] = dict(Counter(r.source_type for r in agg_rows))
-    unique_recipient_count = len({r.care_recipient_id for r in agg_rows})
+    source_type_counts, unique_recipient_count = summarize_list_aggregates(agg_rows)
 
     page_rows = await (
         qs.only(*_LIST_FIELDS)
@@ -135,11 +131,6 @@ async def list_adl_raw(
     )
 
 
-def _event_date(row: AdlRawRecord) -> date | None:
-    """Most informative single event date for sorting — lifeog over emergency over death."""
-    return row.lifeog_date or row.emergency_date or row.death_date
-
-
 @router.get("/recipients", response_model=SuccessResponse[AdlRawRecipientsData])
 async def list_recipients(
     source_type: str | None = Query(default=None),
@@ -159,21 +150,16 @@ async def list_recipients(
         )
 
     # Pass 1 — filtered query returns care_recipient_id set of matching people.
-    filter_qs = AdlRawRecord.all()
-    if source_type:
-        filter_qs = filter_qs.filter(source_type=source_type)
-    if sex:
-        filter_qs = filter_qs.filter(sex=sex)
-    if alone:
-        filter_qs = filter_qs.filter(alone=alone)
-    if district:
-        filter_qs = filter_qs.filter(district=district)
-    if age_min is not None:
-        filter_qs = filter_qs.filter(age__gte=age_min)
-    if age_max is not None:
-        filter_qs = filter_qs.filter(age__lte=age_max)
-    if q:
-        filter_qs = filter_qs.filter(care_recipient_id__icontains=q)
+    filter_qs = apply_adl_filters(
+        AdlRawRecord.all(),
+        source_type=source_type,
+        sex=sex,
+        alone=alone,
+        district=district,
+        age_min=age_min,
+        age_max=age_max,
+        q=q,
+    )
 
     matching_ids: set[str] = set(
         cast(
@@ -193,42 +179,7 @@ async def list_recipients(
         *_AGGREGATE_FIELDS
     )
 
-    grouped: dict[str, list[AdlRawRecord]] = defaultdict(list)
-    for row in aggregate_rows:
-        grouped[row.care_recipient_id].append(row)
-
-    items: list[AdlRawRecipientItem] = []
-    for rid, rows in grouped.items():
-        # Demographics from the row with the most recent lifeog_date (deterministic).
-        rep = max(rows, key=lambda r: (r.lifeog_date or date.min, r.id))
-        type_counts = Counter(r.source_type for r in rows)
-        all_dates = [
-            d
-            for r in rows
-            for d in (r.lifeog_date, r.emergency_date, r.death_date)
-            if d is not None
-        ]
-        items.append(
-            AdlRawRecipientItem(
-                care_recipient_id=rid,
-                age=rep.age,
-                sex=rep.sex,
-                alone=rep.alone,
-                district=rep.district,
-                total_records=len(rows),
-                source_type_counts=dict(type_counts),
-                last_event_date=max(all_dates) if all_dates else None,
-                first_event_date=min(all_dates) if all_dates else None,
-            )
-        )
-
-    # Sort: most recent event first, then id ascending for tie-break.
-    items.sort(
-        key=lambda i: (
-            -(i.last_event_date.toordinal() if i.last_event_date else 0),
-            i.care_recipient_id,
-        )
-    )
+    items = build_recipient_items(aggregate_rows)
     total = len(items)
 
     start = (page - 1) * page_size
@@ -245,21 +196,32 @@ async def list_recipients(
 )
 async def list_recipient_records(
     recipient_id: str = Path(..., min_length=1),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
 ) -> SuccessResponse[AdlRawRecipientRecordsData]:
-    rows = (
-        await AdlRawRecord.filter(care_recipient_id=recipient_id)
-        .only(*_RECORD_SUMMARY_FIELDS)
-        .order_by("-lifeog_date", "-id")
-    )
-
-    if not rows:
+    qs = AdlRawRecord.filter(care_recipient_id=recipient_id)
+    total = await qs.count()
+    if total == 0:
         raise HTTPException(
             status_code=404, detail="해당 수급자의 ADL 원시 레코드를 찾을 수 없습니다."
         )
 
+    rows = (
+        await qs.only(*_RECORD_SUMMARY_FIELDS)
+        .order_by("-lifeog_date", "-id")
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+
     items = [AdlRawRecordSummary.model_validate(r) for r in rows]
     return SuccessResponse(
-        data=AdlRawRecipientRecordsData(care_recipient_id=recipient_id, items=items)
+        data=AdlRawRecipientRecordsData(
+            care_recipient_id=recipient_id,
+            items=items,
+            total=total,
+            page=page,
+            page_size=page_size,
+        )
     )
 
 

@@ -97,7 +97,7 @@ PK가 정수 auto-increment가 아닌 **외부 시스템 ID 문자열**(`patient
 | 필드 | 타입 | 제약 | 의미 | 예시값 |
 |------|------|------|------|--------|
 | `patient_id` | varchar(64) | PK | 환자 고유 ID (외부 시스템 ID) | `"user_1001"`, `"NOR_001"` |
-| `name` | varchar(64) | NOT NULL | 환자 이름 | `"김순자"` |
+| `name` | varchar(64) | NOT NULL, INDEX | 환자 이름 (검색용 인덱스) | `"김순자"` |
 | `age` | int | NOT NULL | 나이 | `78` |
 | `address_full` | varchar(255) | NOT NULL | 전체 주소 | `"서울특별시 노원구 상계동 123-4"` |
 | `address_summary` | varchar(128) | NOT NULL | 요약 주소 (목록 표시용) | `"노원구 상계동"` |
@@ -115,11 +115,11 @@ PK가 정수 auto-increment가 아닌 **외부 시스템 ID 문자열**(`patient
 | 필드 | 타입 | 제약 | 의미 | 예시값 |
 |------|------|------|------|--------|
 | `situation_id` | int | PK, auto | 상황 고유 ID | `1` |
-| `patient_id` | varchar(64) | FK → `patients`, NOT NULL | 대상 환자 (related_name `situations`) | `"user_1001"` |
+| `patient_id` | varchar(64) | FK → `patients`, NOT NULL, INDEX | 대상 환자 (related_name `situations`) | `"user_1001"` |
 | `category` | varchar(32) | NOT NULL | 상황 분류 | `"낙상 의심"`, `"미응답"`, `"이상 패턴"`, `"사망 감지"` |
 | `detail_reason` | text | null | 상세 사유 | `"3시간 무동작 감지"` |
-| `occurred_at` | timestamptz | NOT NULL | 발생 시각 | `2026-04-08T11:33:45Z` |
-| `action_status` | varchar(16) | default `"조치 대기"` | 조치 진행 상태 (활성 여부의 단일 출처 — `"조치 완료"` = 비활성) | `"조치 대기"`, `"현장 출동"`, `"조치 완료"` |
+| `occurred_at` | timestamptz | NOT NULL, INDEX | 발생 시각 (정렬용 인덱스) | `2026-04-08T11:33:45Z` |
+| `action_status` | varchar(16) | default `"조치 대기"`, ENUM(`ActionStatus`) | 조치 진행 상태 (활성 여부의 단일 출처 — `"조치 완료"` = 비활성, `Situation.is_active` 파생) | `"조치 대기"`, `"현장 출동"`, `"조치 완료"` |
 | `created_at` | timestamptz | auto_now_add | 레코드 생성 시각 | `2026-04-08T11:34:00Z` |
 
 ---
@@ -137,8 +137,8 @@ PK가 정수 auto-increment가 아닌 **외부 시스템 ID 문자열**(`patient
 | 필드 | 타입 | 제약 | 의미 | 예시값 |
 |------|------|------|------|--------|
 | `id` | int | PK, auto | 레코드 ID | `1` |
-| `source_type` | varchar(4) | NOT NULL | 이벤트 타입 | `"응급"`, `"사망"` |
-| `care_recipient_id` | varchar(32) | NOT NULL | 돌봄 대상자 ID | `"R-00123"` |
+| `source_type` | varchar(4) | NOT NULL, INDEX | 이벤트 타입 (개방형 자유 문자열 — ENUM 미강제) | `"응급"`, `"사망"`, `"평소"`, `"사망전"` |
+| `care_recipient_id` | varchar(32) | NOT NULL, INDEX | 돌봄 대상자 ID (조회용 인덱스) | `"R-00123"` |
 | `age` | int | null | 나이 | `82` |
 | `sex` | varchar(1) | null | 성별 | `"M"`, `"F"` |
 | `alone` | varchar(1) | null | 독거 여부 | `"Y"`, `"N"` |
@@ -250,6 +250,11 @@ FK 관계가 없다. 환자 식별자도 `care_recipient_id`(varchar)로 별도 
   계산 오류·결측이 다수 관측됨. AI 입력으로 쓸 때는 별도 검증/대체값 필요.
 - **`source_type = "사망"`** 파일의 일부 hex 컬럼은 정수 `0` 으로만 채워진 행이
   있어 `hex_to_int_list()` 가 `None` 을 반환한다 (디코딩 실패가 아닌 원본 결측).
+- **`(care_recipient_id, lifeog_date)` 는 의도적으로 유니크가 아니다.** CSV 적재가
+  같은 사람·같은 날짜에 대해 `응급/평소/사망전` 등 source 변형을 각각 한 행씩 적재하므로
+  한 (수급자, 날짜) 조합에 여러 행(관측상 최대 3행)이 정상적으로 존재한다. 따라서
+  중복 방지 유니크 제약을 두지 않는다 — 일자별 단일 레코드가 필요하면 조회 측에서
+  `source_type` 으로 구분하거나 집계할 것.
 
 ### 운영·분석 레이어 재설계 진행 중 (2026-05-26~)
 

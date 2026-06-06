@@ -7,10 +7,11 @@ class AdlRawRecord(Model):
     """엑셀 샘플 원시 ADL 데이터 — 응급/사망 이벤트 당일 기록"""
 
     id = fields.IntField(primary_key=True)
-    source_type = fields.CharField(max_length=4)  # '응급' | '사망'
+    # 외부 CSV 적재에서 오는 개방형 값: "응급" | "사망" | "평소" | "사망전" 등. ENUM 미강제.
+    source_type = fields.CharField(max_length=4, db_index=True)
 
     # 기본 정보
-    care_recipient_id = fields.CharField(max_length=32)
+    care_recipient_id = fields.CharField(max_length=32, db_index=True)
     age = fields.IntField(null=True)
     sex = fields.CharField(max_length=1, null=True)
     alone = fields.CharField(max_length=1, null=True)
