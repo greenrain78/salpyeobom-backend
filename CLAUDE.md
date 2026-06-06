@@ -109,7 +109,7 @@ await conn.execute("SELECT * FROM patients WHERE ...")
 uv tool install poethepoet
 
 # 개발 시작
-poe dev             # 개발 서버 실행 (auto-reload)
+poe dev             # 백엔드(:8000)+프론트(:3000) 동시 실행 (poe back = 백엔드만)
 
 # 코드 작성 후
 poe fix             # ruff 자동 수정 (포맷 + 린트 autofix)
