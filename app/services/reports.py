@@ -10,15 +10,51 @@ from collections import OrderedDict
 from datetime import date, datetime
 from typing import Any
 
-# 교차검증등급 → 위험 분류. Patient.cross_verification_level 이 단일 출처다.
+# 교차검증등급 → 위험 분류 (폴백 전용). 저장된 Report.risk_level 이 없을 때만 사용.
 # 분류는 위험/주의/사망 3단계 ('정상' 없음 — C등급은 사망으로 표기).
 LEVEL_TO_RISK = {"A": "위험", "B": "주의", "C": "사망"}
 DEATH = "사망"
 
+# 이상탐지 기반 분류 임계 (응급 그룹 내부를 위험/주의로 분할).
+RISK_DUAL = 0.75  # dual 이상 비율 ≥ 0.75 → 위험
+CAUTION_DUAL = 0.70  # 0.70 ≤ dual < 0.75 → 주의
+
 
 def risk_of(level: str | None) -> str:
-    """대상자 교차검증등급(A/B/C)을 위험/주의/사망으로 매핑. 미지정은 '사망'."""
+    """대상자 교차검증등급(A/B/C)을 위험/주의/사망으로 매핑. 미지정은 '사망'. (폴백)"""
     return LEVEL_TO_RISK.get((level or "").strip().upper(), DEATH)
+
+
+def classify(label: str | None, dual_ratio: float | None) -> str | None:
+    """AI 이상탐지 결과로 보고서 분류를 산정한다.
+
+    - 사망 그룹(label='사망') → '사망' (전수)
+    - 응급 그룹(label='응급') → dual 비율 ≥0.75 '위험', ≥0.70 '주의'
+    - 그 외(평소·사망전·임계 미달) → None (보고서 대상 아님)
+    """
+    label = (label or "").strip()
+    ratio = dual_ratio or 0.0
+    if label == DEATH:
+        return DEATH
+    if label == "응급":
+        if ratio >= RISK_DUAL:
+            return "위험"
+        if ratio >= CAUTION_DUAL:
+            return "주의"
+    return None
+
+
+def risk_score(
+    dual_ratio: float | None, mae_avg: float | None, activity_decline: float | None
+) -> float:
+    """이상탐지(dual 비율·MAE)와 지표 추세(활동량 감소율)를 결합한 0~1 위험점수.
+
+    activity_decline 은 (1주차-4주차)/1주차 활동량 감소 비율(0~1)을 기대한다.
+    """
+    dual = max(0.0, min(1.0, dual_ratio or 0.0))
+    mae = max(0.0, min(1.0, (mae_avg or 0.0) / 0.6))  # 사망 MAE≈0.58 을 상한 가정
+    decline = max(0.0, min(1.0, activity_decline or 0.0))
+    return round(min(1.0, 0.5 * dual + 0.2 * mae + 0.3 * decline), 2)
 
 
 def build_report_list(items: list[dict[str, Any]], today: date) -> dict[str, Any]:
@@ -38,7 +74,8 @@ def build_report_list(items: list[dict[str, Any]], today: date) -> dict[str, Any
     groups: OrderedDict[date, dict[str, Any]] = OrderedDict()
 
     for item in items:
-        risk = risk_of(item.get("patient_level"))
+        # 저장된 분류(Report.risk_level) 우선, 없으면 등급에서 폴백.
+        risk = item.get("risk_level") or risk_of(item.get("patient_level"))
         item = {**item, "risk_level": risk}
 
         if risk == "위험":

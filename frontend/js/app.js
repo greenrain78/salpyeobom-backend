@@ -2,6 +2,9 @@
  * 살펴봄 관제 시스템 메인 애플리케이션 로직
  */
 
+// 로그인한 복지사 이메일 — 보고서 발송 시 기본 수신자로 제안한다.
+let currentUserEmail = '';
+
 // ── 스타일 설정 상수 ─────────────────────────────
 const CATEGORY_BADGE = {
     '낙상': 'bg-red-100 text-red-600 border-red-200',
@@ -198,6 +201,7 @@ async function showDashboard() {
         const user = await API.me();
         setText('sidebar-username', user.username);
         setText('sidebar-email',    user.email);
+        currentUserEmail = user.email || '';  // 보고서 발송 기본 수신자
     } catch (_) {}
 
     navigateTo('dashboard');
@@ -308,6 +312,14 @@ function formatTime(iso) {
     if (isNaN(d)) return iso;
     const p = n => String(n).padStart(2, '0');
     return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+function formatDateTime(iso) {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    if (isNaN(d)) return iso;
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 // ══════════════════════════════════════════════════
@@ -539,6 +551,12 @@ async function loadReportPage() {
             wrap.querySelectorAll('button[data-report-id]').forEach(btn => {
                 btn.addEventListener('click', () => openReport(+btn.dataset.reportId));
             });
+            wrap.querySelectorAll('button[data-email-id]').forEach(btn => {
+                btn.addEventListener('click', () => sendReportEmail(btn));
+            });
+            wrap.querySelectorAll('button[data-more-day]').forEach(btn => {
+                btn.addEventListener('click', () => expandReportDay(btn.dataset.moreDay));
+            });
         }
 
         el('report-loading').classList.add('hidden');
@@ -549,8 +567,23 @@ async function loadReportPage() {
     }
 }
 
+// 일자 그룹당 처음 보여줄 보고서 행 수 (초과분은 '더보기'로 펼친다).
+const REPORT_ROWS_PER_DAY = 5;
+
 function reportDayGroup(g, isToday) {
-    const rows = g.items.map(reportRow).join('');
+    const day = g.date;  // data 속성 키 (그룹 식별용)
+    // 처음 5개만 노출, 나머지는 숨김 행으로 미리 렌더해 '더보기' 클릭 시 펼친다.
+    const rows = g.items
+        .map((r, i) => reportRow(r, i >= REPORT_ROWS_PER_DAY ? day : null))
+        .join('');
+    const hidden = Math.max(0, g.count - REPORT_ROWS_PER_DAY);
+    const moreRow = hidden
+        ? `<tr data-more-row="${day}"><td colspan="5" class="px-4 py-2.5 text-center border-t border-slate-100">
+                <button data-more-day="${day}" class="text-[11px] font-bold text-green-600 hover:text-green-700">
+                    <i class="fa-solid fa-chevron-down mr-1"></i>더보기 (${hidden}건)
+                </button>
+            </td></tr>`
+        : '';
     const todayBadge = isToday
         ? '<span class="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-black rounded">오늘</span>'
         : '';
@@ -570,17 +603,33 @@ function reportDayGroup(g, isToday) {
                     <th class="px-4 py-2.5 text-right">보고서</th>
                 </tr>
             </thead>
-            <tbody>${rows}</tbody>
+            <tbody>${rows}${moreRow}</tbody>
         </table>
     </div>`;
 }
 
-function reportRow(r) {
+// '더보기' 클릭 — 해당 일자의 숨김 행을 모두 펼치고 버튼 행을 제거한다.
+function expandReportDay(day) {
+    const esc = (window.CSS && CSS.escape) ? CSS.escape(day) : day;
+    document.querySelectorAll(`tr[data-extra-row="${esc}"]`).forEach(tr => {
+        tr.style.display = '';
+    });
+    document.querySelector(`tr[data-more-row="${esc}"]`)?.remove();
+}
+
+// hiddenDay 가 주어지면(처음 5건 초과) '더보기' 전까지 숨겨두는 행으로 렌더한다.
+function reportRow(r, hiddenDay = null) {
+    // 발송 버튼에 넘길 .docx 파일명 (저장된 file_name 은 PDF — 서버가 변환).
+    const docxName = r.file_name.replace(/\.pdf$/i, '.docx');
+    const hideAttr = hiddenDay ? ` data-extra-row="${hiddenDay}" style="display:none"` : '';
     const emailed = r.emailed_at
-        ? `<span class="text-[11px] text-green-600 font-bold"><i class="fa-solid fa-circle-check mr-1"></i>${r.emailed_to || '발송됨'}</span>`
-        : '<span class="text-[11px] text-slate-400">미발송</span>';
+        ? `<span class="text-[11px] text-green-600 font-bold"><i class="fa-solid fa-circle-check mr-1"></i>발송 완료</span><span class="block text-[10px] text-slate-400 font-mono">${formatDateTime(r.emailed_at)}</span>`
+        : `<button data-email-id="${r.id}" data-email-file="${docxName}" data-email-patient="${r.patient_name}"
+                class="px-2.5 py-1 bg-white border border-green-300 text-green-600 hover:bg-green-50 text-[11px] font-bold rounded transition-colors">
+                <i class="fa-solid fa-paper-plane mr-1"></i>발송
+            </button>`;
     return `
-    <tr class="border-t border-slate-100 hover:bg-slate-50">
+    <tr class="border-t border-slate-100 hover:bg-slate-50"${hideAttr}>
         <td class="px-4 py-2.5 font-bold text-slate-800 text-sm">${r.patient_name}</td>
         <td class="px-4 py-2.5"><span class="px-2 py-0.5 ${getRiskBadge(r.risk_level)} text-[10px] font-black rounded border">${r.risk_level}</span></td>
         <td class="px-4 py-2.5 text-xs text-slate-600">${r.title}</td>
@@ -610,6 +659,28 @@ async function openReport(reportId) {
         await API.openReportPdf(reportId);
     } catch (_) {
         showToast('PDF 를 불러오지 못했습니다.', 'error');
+    }
+}
+
+async function sendReportEmail(btn) {
+    const { emailFile, emailPatient } = btn.dataset;
+    const recipient = prompt(`${emailPatient} 보고서를 보낼 이메일 주소를 입력하세요.`, currentUserEmail);
+    if (recipient === null) return;            // 취소
+    if (!recipient.trim()) {
+        showToast('이메일 주소를 입력하세요.', 'error');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>발송 중';
+    try {
+        await API.emailReport(emailFile, recipient.trim());
+        showToast(`${recipient.trim()} 으로 발송했습니다.`, 'success');
+        loadReportPage();                      // 발송 상태 갱신 (미발송 → 발송됨)
+    } catch (_) {
+        showToast('이메일 발송에 실패했습니다.', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane mr-1"></i>발송';
     }
 }
 

@@ -40,6 +40,8 @@ async def list_reports(
             "id": r.id,
             "patient_id": r.patient.patient_id,
             "patient_name": r.patient.name,
+            # 저장된 분류 우선, 없으면 등급 폴백 (build_report_list 에서 처리).
+            "risk_level": r.risk_level,
             "patient_level": r.patient.cross_verification_level,
             "title": r.title,
             "file_name": r.file_name,

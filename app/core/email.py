@@ -37,27 +37,20 @@ def resolve_report(report_name: str | None) -> Path:
     return path
 
 
-def docx_to_pdf(docx: Path) -> Path:
+def docx_to_pdf(docx: Path, profile_dir: Path | None = None) -> Path:
     """LibreOffice headless 로 .docx 를 PDF 로 변환한다 (동기·블로킹).
 
     시스템에 `soffice`(libreoffice) 가 설치되어 있어야 한다.
+    profile_dir 를 주면 `-env:UserInstallation` 으로 프로파일을 격리해 soffice 를
+    동시에 여러 프로세스로 돌릴 수 있다(병렬 일괄 렌더용). 기본 None=공용 프로파일.
     """
     pdf = docx.with_suffix(".pdf")
+    cmd = ["soffice", "--headless"]
+    if profile_dir is not None:
+        cmd.append(f"-env:UserInstallation=file://{profile_dir}")
+    cmd += ["--convert-to", "pdf", "--outdir", str(docx.parent), str(docx)]
     try:
-        subprocess.run(
-            [
-                "soffice",
-                "--headless",
-                "--convert-to",
-                "pdf",
-                "--outdir",
-                str(docx.parent),
-                str(docx),
-            ],
-            check=True,
-            capture_output=True,
-            timeout=120,
-        )
+        subprocess.run(cmd, check=True, capture_output=True, timeout=120)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as err:
         logger.error("PDF 변환 실패: %s", err)
         raise EmailSendFailed() from err

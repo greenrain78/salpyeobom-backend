@@ -92,6 +92,24 @@ async def test_list_reports_success(auth_client: AsyncClient):
     assert first_item["risk_level"] == "위험"
 
 
+async def test_list_reports_uses_stored_risk_level(auth_client: AsyncClient):
+    """저장된 Report.risk_level 이 등급(cross_verification_level)보다 우선한다."""
+    p = await _make_patient("661", "김영숙", "A")  # 등급 A → 폴백이면 위험
+    await Report.create(
+        patient=p,
+        title="t",
+        file_name="s.pdf",
+        risk_level="사망",  # 저장된 분류
+        generated_at=datetime(2026, 6, 7, tzinfo=UTC),
+    )
+    res = await auth_client.get(LIST_URL)
+    assert res.status_code == 200
+    data = res.json()["data"]
+    assert data["death_count"] == 1
+    assert data["risk_count"] == 0
+    assert data["groups"][0]["items"][0]["risk_level"] == "사망"
+
+
 async def test_list_reports_date_filter(auth_client: AsyncClient):
     """date 필터는 해당 일자 보고서만 반환한다."""
     p = await _make_patient("661", "김영숙", "A")

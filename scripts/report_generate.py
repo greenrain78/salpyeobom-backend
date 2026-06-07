@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 from datetime import date, datetime, timezone
 from pathlib import Path
 from statistics import mean
@@ -37,6 +38,7 @@ from app.database import TORTOISE_ORM  # noqa: E402
 from app.models.adl_raw import AdlRawRecord  # noqa: E402
 from app.models.patient import Patient  # noqa: E402
 from app.models.report import Report  # noqa: E402
+from app.services.reports import classify, risk_of, risk_score  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "out" / "reports"
@@ -53,13 +55,92 @@ INK = RGBColor(0x22, 0x27, 0x2E)  # 본문 텍스트 (거의 검정)
 MUTE = RGBColor(0x66, 0x70, 0x85)  # 보조 텍스트 (회색)
 ACCENT = RGBColor(0x0F, 0x4C, 0x5C)  # 단일 액센트 (딥 틸)
 RISK = RGBColor(0xB4, 0x23, 0x18)  # 위험 강조 (절제된 레드)
+WARN = RGBColor(0xB7, 0x79, 0x1F)  # 주의 강조 (절제된 주황)
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 # hex 문자열 (음영/테두리용)
 H_ACCENT = "0F4C5C"
 H_RISK = "B42318"
+H_WARN = "B7791F"
+H_MUTE = "667085"
 H_HAIR = "E4E7EC"  # 헤어라인
 H_SOFT = "F7F8FA"  # 카드/얼터넷 배경
 H_INK = "22272E"
+
+# 분류(variant) 별 강조 색 / 배너 음영
+VARIANT_INK = {"위험": RISK, "주의": WARN, "사망": MUTE}
+VARIANT_SHADE = {"위험": H_RISK, "주의": H_WARN, "사망": H_MUTE}
+
+# 분류별 내러티브 텍스트 (낙상·계단·병원명 등 661 고정 표현 제거).
+NARRATIVE = {
+    "위험": {
+        "badge": "RISK LEVEL",
+        "grade_label": "고위험 HIGH",
+        "grade_short": "고위험 (위험)",
+        "event": "사고·응급 이송 위험",
+        "window": "단기(수주 내) 발생 가능성",
+        "summary": (
+            "예측 모델은 본 대상자를 고위험(위험)으로 분류하였다. 핵심 근거는 ①주간 활동량의 "
+            "지속적 저하, ②자기관리 활동의 위축, ③야간 이상 지표 증가라는, 상호 연결된 세 가지 "
+            "악화 신호다. 신체 쇠약과 야간 불안정이 동반된 응급 고위험 프로파일이다."
+        ),
+        "risk_factor": "독거(발견·구조 지연), 고령(사고 시 중상 가능성) 등 기저 위험이 존재한다.",
+        "trend_lead": "주간 활동 저하와 야간 불안정의 결합은 임박한 사고·응급의 강한 전조다.",
+        "validation_title": "예측 요약",
+        "validation_note": (
+            "30일 누적 패턴(주간 쇠약 + 야간 불안정)이 응급 위험을 시사한다. 조기 개입이 권고된다."
+        ),
+        "recommendations": [
+            ["즉시", "현장 안전 점검 및 보호자 연락, 야간 상태 집중 확인", "담당 요양보호사"],
+            ["즉시", "야간 이상지표 임계 초과 시 실시간 알림 등급 상향", "모니터링 운영"],
+            ["단기", "주거 환경 안전 점검 및 위험 요소 개선", "복지 담당"],
+            ["단기", "건강 상태 평가 및 보건·의료 연계", "보건·의료"],
+        ],
+    },
+    "주의": {
+        "badge": "CAUTION",
+        "grade_label": "중위험 CAUTION",
+        "grade_short": "중위험 (주의)",
+        "event": "이상 징후 — 악화 가능성",
+        "window": "경과 관찰 권고",
+        "summary": (
+            "예측 모델은 본 대상자를 중위험(주의)으로 분류하였다. 일부 지표에서 이상 징후가 "
+            "관찰되나 즉각적 응급 수준은 아니다. 활동·야간 패턴 변화를 주기적으로 관찰할 필요가 있다."
+        ),
+        "risk_factor": "독거·고령 등 기저 위험은 있으나 현재 지표는 경계 수준이다.",
+        "trend_lead": "현재 추세는 악화 가능성을 시사하므로 지속 관찰이 필요하다.",
+        "validation_title": "예측 요약",
+        "validation_note": "응급 수준은 아니나 추세 악화 시 등급 상향이 필요하다.",
+        "recommendations": [
+            ["단기", "모니터링 주기 단축 및 지표 변화 추적", "모니터링 운영"],
+            ["단기", "방문 점검으로 생활 상태·복약 확인", "담당 요양보호사"],
+            ["정기", "보건 상담 및 건강 상태 점검", "보건·의료"],
+        ],
+    },
+    "사망": {
+        "badge": "RECORD",
+        "grade_label": "모니터링 종료",
+        "grade_short": "사망 (모니터링 종료)",
+        "event": "쇠약 진행 → 사망",
+        "window": "관찰 종료",
+        "summary": (
+            "본 대상자는 관찰 기간 중 사망하였다. 사망 전 수주간 수면·활동 지표가 급격히 감소하는 "
+            "노인성 쇠약 패턴이 관찰되었다. 본 보고서는 회고적 분석으로, 향후 유사 패턴의 조기 "
+            "식별을 위한 참고 자료다."
+        ),
+        "risk_factor": "독거·고령에 더해 말기 활동·수면 급감이 사망에 선행하였다.",
+        "trend_lead": "주간 활동 소실과 수면 급감의 결합은 말기 쇠약의 전형적 경과다.",
+        "validation_title": "사망 확인 — 종료일 대조",
+        "validation_note": (
+            "30일 누적 패턴(활동 소실 + 수면 급감)이 사망으로 귀결되어, 쇠약 진행 신호의 "
+            "회고적 검증 사례다."
+        ),
+        "recommendations": [
+            ["즉시", "유가족 안내 및 사례 종결 처리", "복지 담당"],
+            ["단기", "동일 패턴군 선제 모니터링 강화", "모니터링 운영"],
+            ["단기", "말기 쇠약 조기경보 임계 재검토", "보건·의료"],
+        ],
+    },
+}
 
 KFONT = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
 KFONT_BOLD = "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf"
@@ -81,6 +162,32 @@ async def fetch_rows(cid: str, id_lo: int | None, id_hi: int | None) -> list[dic
         q = AdlRawRecord.filter(care_recipient_id=cid)
     rows = await q.order_by("lifeog_date", "id").values()
     return rows[-30:]
+
+
+async def fetch_anomaly(cid: str) -> dict | None:
+    """대상자의 이상탐지 집계(dual 비율·MAE·라벨)를 읽는다 (읽기전용). 없으면 None.
+
+    adl_anomaly_results 는 매핑/PK 없는 분석 테이블이라 raw SELECT 로 접근한다(스크립트 한정).
+    """
+    conn = Tortoise.get_connection("default")
+    try:
+        rows = await conn.execute_query_dict(
+            "SELECT avg(CASE WHEN anomaly_dual THEN 1.0 ELSE 0.0 END) AS dual_frac, "
+            "avg(mae_a) AS mae_avg, max(label) AS label, count(*) AS n "
+            "FROM adl_anomaly_results WHERE care_recipient_id = $1",
+            [cid],
+        )
+    except Exception as err:  # noqa: BLE001 — 테이블 부재(로컬 등) → 등급 폴백
+        print(f"참고: 이상탐지 조회 불가({err}) — 등급 기반 폴백.")
+        return None
+    if not rows or not rows[0]["n"]:
+        return None
+    r = rows[0]
+    return {
+        "dual_frac": float(r["dual_frac"] or 0.0),
+        "mae_avg": float(r["mae_avg"] or 0.0),
+        "label": r["label"],
+    }
 
 
 def analyze(rows: list[dict]) -> dict:
@@ -460,12 +567,12 @@ def kpi_cards(doc, cards):
     return t
 
 
-def risk_banner(doc, grade_label, badge, score, event, window):
+def risk_banner(doc, grade_label, badge, score, event, window, *, shade_hex=H_RISK, score_color=RISK):
     t = doc.add_table(rows=1, cols=2)
     no_borders(t)
     left = t.rows[0].cells[0]
     left.width = Cm(4.6)
-    shade(left, H_RISK)
+    shade(left, shade_hex)
     cell_margins(left, top=120, bottom=120, left=160, right=160)
     left.text = ""
     pa = left.paragraphs[0]
@@ -482,7 +589,7 @@ def risk_banner(doc, grade_label, badge, score, event, window):
     r1 = right.paragraphs[0]
     r1.paragraph_format.space_after = Pt(3)
     run(r1, "위험점수 ", size=10, color=MUTE)
-    run(r1, f"{score:.2f}", size=14, bold=True, color=RISK)
+    run(r1, f"{score:.2f}", size=14, bold=True, color=score_color)
     run(r1, " / 1.00", size=10, color=MUTE)
     r2 = right.add_paragraph()
     r2.paragraph_format.space_after = Pt(0)
@@ -516,9 +623,14 @@ def pct(a, b):
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. 보고서
 # ─────────────────────────────────────────────────────────────────────────────
-def build(an, c1, c2, *, patient_id: str, report_date: date) -> Path:
+def build(an, c1, c2, *, patient_id: str, report_date: date, profile: dict) -> Path:
     prof = an["profile"]
     sex = "여성" if prof["sex"] == "F" else "남성"
+    variant = profile["variant"]  # 위험 | 주의 | 사망
+    score = profile["score"]
+    # 기본 템플릿에 LLM 맞춤 내러티브(profile["narrative"])를 덮어쓴다 (있는 키만).
+    nv = {**NARRATIVE[variant], **(profile.get("narrative") or {})}
+    vink = VARIANT_INK[variant]  # 분류 강조 색
     doc = Document()
     set_base_font(doc)
     doc.core_properties.title = f"고령자 위험 예측 보고서 — 대상자 {patient_id}"
@@ -557,7 +669,7 @@ def build(an, c1, c2, *, patient_id: str, report_date: date) -> Path:
             ("분석 대상자", f"{prof['care_recipient_id']} · {prof['age']}세 · {sex} · 독거"),
             ("관찰 구간", f"{an['dates'][0]} – {an['dates'][-1]}  (30일)"),
             ("작성 일자", report_date.isoformat()),
-            ("분류 등급", "고위험 (4 / 4)"),
+            ("분류 등급", f"{nv['grade_short']} · 위험점수 {score:.2f}"),
             ("작성 주체", "위험예측 모델 + LLM 자동 서술"),
         ],
         label_w=3.6,
@@ -581,7 +693,14 @@ def build(an, c1, c2, *, patient_id: str, report_date: date) -> Path:
 
     h1(doc, "00", "핵심 요약")
     risk_banner(
-        doc, "고위험 HIGH", "RISK LEVEL", 0.87, "낙상·외상에 의한 응급 이송", "1주 이내 발생 가능성"
+        doc,
+        nv["grade_label"],
+        nv["badge"],
+        score,
+        nv["event"],
+        nv["window"],
+        shade_hex=VARIANT_SHADE[variant],
+        score_color=vink,
     )
     para(doc, before=10)
     kpi_cards(
@@ -591,19 +710,19 @@ def build(an, c1, c2, *, patient_id: str, report_date: date) -> Path:
                 "활동량 aix_d",
                 f"{an['w4_aix']:.0f}",
                 f"{pct(an['w1_aix'], an['w4_aix'])}  vs 1주",
-                RISK,
+                vink,
             ),
             (
                 "야간 이상비",
                 f"{an['w4_night'] / 1000:.1f}k",
                 f"{pct(an['w1_night'], an['w4_night'])}  vs 1주",
-                RISK,
+                vink,
             ),
             (
                 "목욕 횟수",
                 f"{an['w4_bath']:.0f}",
                 f"{pct(an['w1_bath'], an['w4_bath'])}  vs 1주",
-                RISK,
+                vink,
             ),
         ],
     )
@@ -612,16 +731,9 @@ def build(an, c1, c2, *, patient_id: str, report_date: date) -> Path:
     run(
         p,
         f"대상자 {prof['care_recipient_id']}({prof['age']}세·{sex}·독거)의 최근 30일 원격 ADL "
-        "데이터를 분석한 결과, 예측 모델은 본 대상자를 ",
+        "데이터를 분석한 결과는 다음과 같다. ",
     )
-    run(p, "고위험(4단계)", bold=True, color=RISK)
-    run(
-        p,
-        "으로 분류하였다. 핵심 근거는 ①주간 활동량의 지속적 붕괴, ②자기관리(목욕) 활동의 위축, "
-        "③사건 직전 주의 야간 이상 지표 폭증이라는, 상호 인과적으로 연결된 세 가지 악화 신호다. "
-        "이 패턴은 신체 쇠약과 야간 불안정이 동반된 전형적 낙상 고위험 프로파일이며, 실제로 관찰 "
-        "종료일에 실외 계단 낙상이 발생해 모델 예측이 검증되었다.",
-    )
+    run(p, nv["summary"])
 
     h1(doc, "01", "대상자 개요")
     kv_block(
@@ -641,10 +753,7 @@ def build(an, c1, c2, *, patient_id: str, report_date: date) -> Path:
     )
     p = para(doc, before=6)
     run(p, "위험 가중 요인  ", bold=True, color=ACCENT)
-    run(
-        p,
-        "독거(발견·구조 지연), 고령(낙상 시 중상 가능성), 옥내 욕실·계단 동선 등 물리적 낙상 위험이 기저에 존재한다.",
-    )
+    run(p, nv["risk_factor"])
 
     h1(doc, "02", "분석 방법 및 데이터")
     p = para(doc)
@@ -667,10 +776,10 @@ def build(an, c1, c2, *, patient_id: str, report_date: date) -> Path:
     p = para(doc)
     run(
         p,
-        f"활동량(aix_d)은 초기 평균 {an['w1_aix']:.0f}에서 3주차 17까지 급락한 뒤 회복하지 못했고 "
-        f"최저 {an['aix_min']:.0f}({an['aix_min_date'].strftime('%-m/%-d')})을 기록했다. 반면 야간 이상비는 "
-        f"사건 직전 주에 폭증하여 최대 {an['night_max']:,.0f}({an['night_max_date'].strftime('%-m/%-d')})에 "
-        "달했다. 주간 활동 소실과 야간 불안정의 결합은 임박한 낙상·응급의 강한 전조다.",
+        f"활동량(aix_d)은 1주차 평균 {an['w1_aix']:.0f}에서 4주차 {an['w4_aix']:.0f}로 변화했고 "
+        f"최저 {an['aix_min']:.0f}({an['aix_min_date'].strftime('%-m/%-d')})을 기록했다. 야간 이상비는 "
+        f"최대 {an['night_max']:,.0f}({an['night_max_date'].strftime('%-m/%-d')})에 달했다. "
+        + nv["trend_lead"],
     )
     doc.add_picture(str(c1), width=Cm(16.2))
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -699,46 +808,42 @@ def build(an, c1, c2, *, patient_id: str, report_date: date) -> Path:
 
     h2(doc, "결정적 신호")
     for b in [
-        f"활동량 붕괴 — aix_d 252(12/5) → 최저 {an['aix_min']:.0f}({an['aix_min_date'].strftime('%-m/%-d')}). 거동 능력의 구조적 저하, 회복되지 않음.",
-        f"야간 이상치 폭발 — night_aix_ratio 가 말기 급등, 12/29 최대 {an['night_max']:,.0f}. 사건 직전 야간 상태가 극도로 불안정.",
-        "자기관리 위축 — 목욕 횟수 23 → 7회. 일상 기능 저하의 누적 지표.",
-        "외출 유지 — 활동 전반은 줄었으나 외출은 유지. 약화된 신체로 외부 보행을 지속하는 낙상 고위험 조합.",
+        f"활동량 변화 — 1주차 {an['w1_aix']:.0f} → 최저 {an['aix_min']:.0f}"
+        f"({an['aix_min_date'].strftime('%-m/%-d')}). 거동 능력 추이.",
+        f"야간 이상 — night_aix_ratio 최대 {an['night_max']:,.0f}"
+        f"({an['night_max_date'].strftime('%-m/%-d')}). 야간 상태 안정도 지표.",
+        f"자기관리 — 목욕 횟수 {an['w1_bath']:.0f} → {an['w4_bath']:.0f}회. 일상 기능 추이.",
+        "외출 — 활동량 대비 외출 패턴 변화 관찰.",
     ]:
         bp = para(doc, after=3)
         run(bp, "—  ", color=ACCENT, bold=True)
         run(bp, b, size=9.5)
 
-    h1(doc, "04", "예측 검증 — 실제 발생 대조")
-    kv_block(
-        doc,
-        [
-            ("실제 발생일", str(an["event_date"])),
-            ("발생 장소", f"{prof.get('occurrence_place', '—')} (계단)"),
-            ("경위", "계단에서 넘어져 119 호출 → 세일병원 이송·입원"),
-            (
-                "현장 · 이송 · 치료",
-                f"{prof.get('on_site', '—')} · {prof.get('hospital_transfer', '—')} · {prof.get('hospital_treatment', '—')}",
-            ),
-            ("예측–실제 일치", "일치 — 고위험 판정 구간 내 낙상·응급 이송 발생"),
-        ],
-    )
+    h1(doc, "04", nv["validation_title"])
+    if variant == "사망":
+        event_date_str = str(an["event_date"] or prof.get("death_date") or "—")
+        validation_rows = [
+            ("실제 발생일", event_date_str),
+            ("구분", "사망 (모니터링 종료)"),
+            ("선행 패턴", "관찰 종료 전 활동·수면 급감"),
+            ("예측–실제", "말기 쇠약 패턴과 부합"),
+        ]
+    else:
+        validation_rows = [
+            ("예측 분류", nv["grade_short"]),
+            ("위험 점수", f"{score:.2f} / 1.00"),
+            ("주요 근거", "활동량 추이 + 야간 이상 지표"),
+            ("권고 대응", nv["window"]),
+        ]
+    kv_block(doc, validation_rows)
     p = para(doc, before=6)
-    run(
-        p,
-        "30일 누적 패턴(주간 쇠약 + 야간 불안정 + 외출 유지)이 실제 실외 계단 낙상으로 귀결되어, 모델의 "
-        "고위험 예측이 실제 이벤트와 부합했다. 본 사례는 조기 경보가 실효적으로 작동할 수 있었음을 보여준다.",
-    )
+    run(p, nv["validation_note"])
 
     h1(doc, "05", "권고 조치")
     data_table(
         doc,
         ["시급도", "조치 내용", "담당"],
-        [
-            ["즉시", "현장 안전 점검 및 보호자 연락, 야간 상태 집중 확인", "담당 요양보호사"],
-            ["즉시", "야간 이상지표 임계 초과 시 실시간 알림 등급 상향", "모니터링 운영"],
-            ["단기", "계단·욕실 미끄럼 방지·안전손잡이 등 주거 환경 개선", "복지 담당"],
-            ["단기", "보행·근력 평가 및 낙상 예방 중재 연계", "보건·의료"],
-        ],
+        nv["recommendations"],
         aligns={0: WD_ALIGN_PARAGRAPH.CENTER},
         widths=[2.0, 9.5, 4.0],
         zebra=True,
@@ -776,7 +881,9 @@ def build(an, c1, c2, *, patient_id: str, report_date: date) -> Path:
     return out
 
 
-async def register_report(patient_id: str, title: str, file_name: str, report_date: date) -> None:
+async def register_report(
+    patient_id: str, title: str, file_name: str, report_date: date, risk_level: str
+) -> None:
     """생성한 보고서를 Report 테이블에 멱등 등록한다 (file_name 기준 upsert)."""
     patient = await Patient.get_or_none(patient_id=patient_id)
     if patient is None:
@@ -787,31 +894,109 @@ async def register_report(patient_id: str, title: str, file_name: str, report_da
     )
     await Report.update_or_create(
         file_name=file_name,
-        defaults={"patient": patient, "title": title, "generated_at": generated_at},
+        defaults={
+            "patient": patient,
+            "title": title,
+            "generated_at": generated_at,
+            "risk_level": risk_level,
+        },
     )
-    print(f"Report 등록 → {file_name} ({patient_id})")
+    print(f"Report 등록 → {file_name} ({patient_id}, {risk_level})")
+
+
+async def analyze_target(
+    patient_id: str, cid: str, id_lo: int | None, id_hi: int | None
+) -> tuple[dict, dict]:
+    """대상자 분석(an) + 분류/점수 프로파일을 산출한다 (분류·점수는 이상탐지+추세 결합)."""
+    rows = await fetch_rows(cid, id_lo, id_hi)
+    an = analyze(rows)
+    anomaly = await fetch_anomaly(cid)
+    patient = await Patient.get_or_none(patient_id=patient_id)
+    level = patient.cross_verification_level if patient else None
+    variant = (classify(anomaly["label"], anomaly["dual_frac"]) if anomaly else None) or risk_of(
+        level
+    )
+    w1 = an["w1_aix"] or 0.0
+    activity_decline = max(0.0, (w1 - an["w4_aix"]) / w1) if w1 else 0.0
+    score = risk_score(
+        anomaly["dual_frac"] if anomaly else None,
+        anomaly["mae_avg"] if anomaly else None,
+        activity_decline,
+    )
+    profile = {"variant": variant, "score": score, "label": anomaly["label"] if anomaly else None}
+    return an, profile
+
+
+def analysis_summary(patient_id: str, cid: str, an: dict, profile: dict) -> dict:
+    """서브에이전트가 맞춤 내러티브를 작성할 수 있도록 핵심 지표를 JSON 친화 dict 로 요약."""
+    prof = an["profile"]
+    return {
+        "patient_id": patient_id,
+        "cid": cid,
+        "variant": profile["variant"],
+        "score": profile["score"],
+        "age": prof.get("age"),
+        "sex": "여성" if prof.get("sex") == "F" else "남성",
+        "district": prof.get("district"),
+        "metrics": {
+            "w1_aix": round(an["w1_aix"], 1),
+            "w4_aix": round(an["w4_aix"], 1),
+            "aix_min": round(an["aix_min"], 1),
+            "aix_min_date": str(an["aix_min_date"]),
+            "night_max": round(an["night_max"], 1),
+            "night_max_date": str(an["night_max_date"]),
+            "w1_bath": round(an["w1_bath"], 1),
+            "w4_bath": round(an["w4_bath"], 1),
+            "w1_night": round(an["w1_night"], 1),
+            "w4_night": round(an["w4_night"], 1),
+            "weeks": [
+                {"label": w["label"], "aix": round(w["aix"], 1), "night": round(w["night"], 1)}
+                for w in an["weeks"]
+            ],
+        },
+    }
 
 
 async def generate(
-    patient_id: str, cid: str, report_date: date, id_lo: int | None, id_hi: int | None
+    patient_id: str,
+    cid: str,
+    report_date: date,
+    id_lo: int | None,
+    id_hi: int | None,
+    narrative_path: str | None = None,
 ) -> None:
     ASSET_DIR.mkdir(parents=True, exist_ok=True)
     await Tortoise.init(config=TORTOISE_ORM)
     try:
-        rows = await fetch_rows(cid, id_lo, id_hi)
-        an = analyze(rows)
+        an, profile = await analyze_target(patient_id, cid, id_lo, id_hi)
+        # 맞춤 내러티브 주입 (있으면 NARRATIVE 템플릿을 LLM 작성 텍스트로 덮어씀).
+        if narrative_path:
+            profile["narrative"] = json.loads(Path(narrative_path).read_text(encoding="utf-8"))
+
         setup_chart_style()
         c1 = chart_activity(an)
         c2 = chart_selfcare(an)
-        out = build(an, c1, c2, patient_id=patient_id, report_date=report_date)
+        out = build(an, c1, c2, patient_id=patient_id, report_date=report_date, profile=profile)
         # 조회 서빙용 PDF 변환. soffice 미설치 시 docx 로 폴백 등록.
         try:
             file_name = docx_to_pdf(out).name
         except Exception as err:  # noqa: BLE001
             print(f"경고: PDF 변환 실패({err}) — docx 로 등록.")
             file_name = out.name
-        await register_report(patient_id, f"{patient_id} 위험예측 보고서", file_name, report_date)
-        print(f"보고서 생성 완료 → {out}")
+        await register_report(
+            patient_id, f"{patient_id} 위험예측 보고서", file_name, report_date, profile["variant"]
+        )
+        print(f"보고서 생성 완료 → {out} [{profile['variant']}, score={profile['score']}]")
+    finally:
+        await Tortoise.close_connections()
+
+
+async def dump_analysis(patient_id: str, cid: str, id_lo: int | None, id_hi: int | None) -> None:
+    """대상자 분석 요약 JSON 을 stdout 으로 출력한다 (내러티브 작성용)."""
+    await Tortoise.init(config=TORTOISE_ORM)
+    try:
+        an, profile = await analyze_target(patient_id, cid, id_lo, id_hi)
+        print(json.dumps(analysis_summary(patient_id, cid, an, profile), ensure_ascii=False))
     finally:
         await Tortoise.close_connections()
 
@@ -825,6 +1010,10 @@ def main() -> None:
     p.add_argument("--date", default=REPORT_DATE.isoformat(), help="보고서 일자 (YYYY-MM-DD)")
     p.add_argument("--id-lo", type=int, default=None, help="adl_raw id 범위 시작")
     p.add_argument("--id-hi", type=int, default=None, help="adl_raw id 범위 끝")
+    p.add_argument("--narrative", default=None, help="LLM 맞춤 내러티브 JSON 경로 (주입)")
+    p.add_argument(
+        "--dump-analysis", action="store_true", help="보고서 미생성, 분석 요약 JSON 만 출력"
+    )
     args = p.parse_args()
 
     patient_id = args.patient_id
@@ -835,7 +1024,10 @@ def main() -> None:
     if id_lo is None and id_hi is None and args.cid is None and patient_id == DEFAULT_PATIENT_ID:
         id_lo, id_hi = DEFAULT_ID_LO, DEFAULT_ID_HI
 
-    asyncio.run(generate(patient_id, cid, report_date, id_lo, id_hi))
+    if args.dump_analysis:
+        asyncio.run(dump_analysis(patient_id, cid, id_lo, id_hi))
+    else:
+        asyncio.run(generate(patient_id, cid, report_date, id_lo, id_hi, args.narrative))
 
 
 if __name__ == "__main__":

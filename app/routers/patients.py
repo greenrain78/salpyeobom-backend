@@ -1,3 +1,4 @@
+import asyncio
 import math
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
@@ -29,8 +30,20 @@ async def list_patients(
     qs = Patient.all()
     if search_name:
         qs = qs.filter(name__icontains=search_name)
-    total = await qs.count()
-    patients = await qs.offset((page - 1) * limit).limit(limit)
+    # 목록에 필요한 5개 컬럼만 조회(전체 행 대신) + count 와 동시 실행으로
+    # 원격 DB 왕복을 2회→1회(병렬)로 줄인다.
+    total, patients = await asyncio.gather(
+        qs.count(),
+        qs.only(
+            "patient_id",
+            "name",
+            "address_summary",
+            "manager_name",
+            "cross_verification_level",
+        )
+        .offset((page - 1) * limit)
+        .limit(limit),
+    )
     return SuccessResponse(
         data=PatientListData(
             total_count=total,

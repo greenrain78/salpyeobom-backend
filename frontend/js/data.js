@@ -43,8 +43,10 @@ const API = {
     getDashboardSummary:  ()              => apiRequest('GET', '/dashboard/summary'),
     getActiveSituations:  (limit=50)      => apiRequest('GET', `/situations/active?limit=${limit}`),
     listPatients:         (page=1, limit=200) => apiRequest('GET', `/patients?page=${page}&limit=${limit}`),
-    // 모든 페이지를 끝까지 받아 합친다 (대상자 100명 초과 시 누락 방지).
-    listAllPatients: async (pageSize=200) => {
+    // 대상자 전체를 한 번의 요청으로 받는다. (이전엔 200건씩 끊어 받아 수급자 수에
+    // 비례해 N번 왕복 + 매 요청 count() 재실행으로 느렸다 — 3000명이면 15요청/15count.)
+    // pageSize 를 충분히 크게 잡아 단일 요청으로 끝내고, 초과분만 루프로 보완한다.
+    listAllPatients: async (pageSize=5000) => {
         const first = await API.listPatients(1, pageSize);
         const totalPages = first.data.total_pages || 1;
         if (totalPages <= 1) return first;
@@ -62,6 +64,10 @@ const API = {
 
     // 보고서
     listReports:          (date=null)     => apiRequest('GET', `/reports${date ? `?date=${date}` : ''}`),
+
+    // 보고서 이메일 발송 — report_name 은 .docx 파일명(서버가 PDF 변환 후 첨부).
+    emailReport: (reportName, recipient) =>
+        apiRequest('POST', '/reports/email', { report_name: reportName, recipient }),
 
     // 보고서 PDF — 인증 헤더가 필요해 blob 으로 받아 새 탭에 연다 (a href 로는 토큰 전달 불가).
     openReportPdf: async (reportId) => {

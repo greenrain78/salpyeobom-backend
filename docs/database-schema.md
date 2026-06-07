@@ -154,14 +154,16 @@ PK가 정수 auto-increment가 아닌 **외부 시스템 ID 문자열**(`patient
 | `patient_id` | varchar(64) | FK → `patients`, NOT NULL, INDEX | 대상 환자 (related_name `reports`) | `"661"` |
 | `title` | varchar(128) | NOT NULL | 보고서 제목 | `"661 위험예측 보고서"` |
 | `file_name` | varchar(255) | NOT NULL | `out/reports/` 내 PDF 파일명 | `"위험예측보고서_661_20260607.pdf"` |
+| `risk_level` | varchar(8) | null | 생성 시점 분류(위험\|주의\|사망) | `"위험"` |
 | `generated_at` | timestamptz | NOT NULL, INDEX | 보고서 일자/시각 (정렬·일자 그룹용) | `2026-06-07T00:00:00Z` |
 | `emailed_at` | timestamptz | null | 이메일 발송 시각 (미발송 시 null) | `2026-06-07T09:30:00Z` |
 | `emailed_to` | varchar(255) | null | 발송 수신자 | `"manager@example.com"` |
 | `created_at` | timestamptz | auto_now_add | 레코드 생성 시각 | `2026-06-07T00:00:05Z` |
 
-> **위험등급은 저장하지 않는다.** 목록의 위험/주의/사망 분류는 조회 시 FK 대상자의
-> `cross_verification_level`(A→위험·B→주의·C→사망)에서 파생한다 (`app/services/reports.py:risk_of`).
-> 기본 정렬은 `generated_at` 내림차순(`Meta.ordering`).
+> **분류(`risk_level`)는 생성 시점에 고정 저장한다.** AI 이상탐지(`adl_anomaly_results`) 기반
+> `app/services/reports.py:classify`(사망 그룹→사망, 응급 dual≥0.75→위험·≥0.70→주의)로 산정.
+> 목록은 이 저장값을 우선 사용하고, 없으면 `cross_verification_level` 에서 폴백
+> (`risk_of`, A→위험·B→주의·C→사망). 기본 정렬은 `generated_at` 내림차순(`Meta.ordering`).
 
 ---
 
