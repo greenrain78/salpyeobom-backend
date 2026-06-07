@@ -7,6 +7,9 @@ wheels/
 *.egg-info
 .claude
 
+# 생성 산출물 (리포트/합성 데이터) — 커밋하지 않음 (batch.jsonl 등 대용량)
+out/
+
 # Virtual environments
 .venv
 

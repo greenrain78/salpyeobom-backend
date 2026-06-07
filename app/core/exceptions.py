@@ -24,3 +24,19 @@ class InvalidCredentials(HTTPException):
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+class ReportNotFound(HTTPException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report file not found",
+        )
+
+
+class EmailSendFailed(HTTPException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to send report email",
+        )

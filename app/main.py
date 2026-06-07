@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import close_db, init_db
-from app.routers import adl_raw, auth, dashboard, patients, situations
+from app.routers import adl_raw, auth, dashboard, patients, reports, situations
 
 
 def _expand_origins(origins_str: str) -> list[str]:
@@ -74,6 +74,7 @@ def create_app() -> FastAPI:
     app.include_router(dashboard.router)
     app.include_router(situations.router)
     app.include_router(patients.router)
+    app.include_router(reports.router)
 
     return app
 
