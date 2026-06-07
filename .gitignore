@@ -38,13 +38,8 @@ sample/
 # 노트북 산출물 (대상자 인구통계·건강 패턴 — sample/ 와 동일하게 추적 제외)
 notebooks/llm_prompts/
 
-# Frontend (Next.js)
-frontend/node_modules/
-frontend/.next/
-frontend/out/
-frontend/.env.local
-frontend/next-env.d.ts
-frontend/*.tsbuildinfo
+# Frontend (정적 HTML/CSS/JS — 빌드 산출물 없음)
+# http.server 가 frontend/ 를 그대로 서빙하므로 무시할 빌드 디렉터리가 없다.
 
 # OMC tooling runtime (sessions / autopilot specs / plans / state)
 # .claude 와 동일하게 AI 도구 산출물은 추적하지 않는다.

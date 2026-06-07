@@ -111,3 +111,58 @@ async def test_active_situations_pagination_offset(auth_client: AsyncClient):
     ids2 = [s["situation_id"] for s in page2.json()["data"]["situations"]]
     assert len(ids1) == 2 and len(ids2) == 2
     assert set(ids1).isdisjoint(ids2)
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/situations/{id}/actions
+# ---------------------------------------------------------------------------
+
+
+def _actions_url(situation_id: int) -> str:
+    return f"/api/v1/situations/{situation_id}/actions"
+
+
+async def test_create_action_updates_status(auth_client: AsyncClient):
+    # Arrange — 활성(조치 대기) 상황 1건
+    patient = await _make_patient()
+    situation = await _make_situation(patient, action_status="조치 대기")
+
+    # Act — 유선 연락 후 "조치 완료"로 전환
+    res = await auth_client.post(
+        _actions_url(situation.situation_id),
+        json={"action_type": "유선 연락", "action_note": None, "status_update": "조치 완료"},
+    )
+
+    # Assert — 201 + 상태 갱신, 이후 활성 목록에서 빠진다
+    assert res.status_code == 201
+    assert res.json()["data"]["action_status"] == "조치 완료"
+    await situation.refresh_from_db()
+    assert situation.action_status == ActionStatus.COMPLETED
+    active = await auth_client.get(ACTIVE_URL)
+    assert active.json()["data"]["situations"] == []
+
+
+async def test_create_action_situation_not_found(auth_client: AsyncClient):
+    res = await auth_client.post(
+        _actions_url(999999),
+        json={"action_type": "유선 연락", "status_update": "조치 완료"},
+    )
+    assert res.status_code == 404
+
+
+async def test_create_action_invalid_status(auth_client: AsyncClient):
+    patient = await _make_patient()
+    situation = await _make_situation(patient)
+    res = await auth_client.post(
+        _actions_url(situation.situation_id),
+        json={"action_type": "유선 연락", "status_update": "존재하지 않는 상태"},
+    )
+    assert res.status_code == 422
+
+
+async def test_create_action_requires_auth(client: AsyncClient):
+    res = await client.post(
+        _actions_url(1),
+        json={"action_type": "유선 연락", "status_update": "조치 완료"},
+    )
+    assert res.status_code == 401

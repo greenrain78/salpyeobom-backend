@@ -9,6 +9,7 @@ dependencies = [
     "fastapi[standard]>=0.115.0",
     "pydantic-settings>=2.3.0",
     "python-jose[cryptography]>=3.3.0",
+    "resend>=2.30.1",
     "tortoise-orm[asyncpg]>=0.25.0",
     "uvicorn[standard]>=0.30.0",
 ]
@@ -69,7 +70,7 @@ src_folder = "./."
 # [개발]
 dev           = { cmd = "uv run python dev.py",                   help = "백엔드(8000)+프론트(3000) 동시 실행 — Ctrl+C 한 번에 둘 다 종료" }
 back          = { cmd = "uv run uvicorn app.main:app --reload",   help = "백엔드만 실행 (auto-reload, :8000)" }
-front         = { cmd = "npm --prefix frontend run dev",          help = "프론트만 실행 (Next.js, :3000)" }
+front         = { cmd = "python -m http.server 3000 --directory frontend", help = "프론트만 실행 (정적 파일, :3000)" }
 test          = { cmd = "uv run pytest -v",                       help = "테스트 실행 (커버리지 포함)" }
 migrate       = { cmd = "uv run aerich upgrade",                  help = "DB 마이그레이션 적용" }
 seed-users    = { cmd = "uv run python scripts/seed_users.py",    help = "데모 admin 계정 시드 (멱등)" }

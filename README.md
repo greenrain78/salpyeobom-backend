@@ -14,9 +14,9 @@
 | 백엔드 | FastAPI (async), Tortoise ORM, asyncpg, Aerich |
 | 데이터베이스 | PostgreSQL (운영), SQLite in-memory (테스트) |
 | 인증 | JWT (python-jose, HS256), bcrypt |
-| 프론트엔드 | Next.js 16, TypeScript, Tailwind CSS, shadcn/ui, Recharts |
+| 프론트엔드 | 정적 HTML/CSS/Vanilla JS (빌드 도구 없음), Tailwind CSS(CDN) |
 | AI / 데이터 | Sliding Window 전처리, Hierarchical GRU AutoEncoder (Track A/B) |
-| 패키지 관리 | uv (Python 3.11+), npm |
+| 패키지 관리 | uv (Python 3.11+) |
 | 품질 | pytest + pytest-asyncio, ruff, mypy, pre-commit |
 | 운영 | systemd, poethepoet (`poe`) 태스크 러너 |
 
@@ -53,7 +53,7 @@ bash scripts/install.sh
 ```bash
 # 최초 1회 (머신당)
 uv tool install poethepoet
-cd frontend && cp .env.local.example .env.local && npm install && cd ..
+# 프론트는 정적 파일이라 별도 설치 과정이 없다.
 
 # 백엔드 + 프론트엔드 한 번에 (권장)
 poe dev                 # BE :8000 + FE :3000 동시 (= uv run python dev.py)
@@ -61,7 +61,7 @@ poe dev                 # BE :8000 + FE :3000 동시 (= uv run python dev.py)
 
 # 개별 실행
 poe back                # 백엔드만 (uvicorn --reload, :8000)
-poe front               # 프론트만 (Next.js, :3000)
+poe front               # 프론트만 (정적 파일, :3000)
 
 poe test                # 테스트 실행 (SQLite in-memory)
 poe check               # lint + format + typecheck + test (커밋 전 필수)

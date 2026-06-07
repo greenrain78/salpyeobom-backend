@@ -23,7 +23,9 @@ FRONTEND = ROOT / "frontend"
 IS_WINDOWS = os.name == "nt"
 
 BACKEND_CMD = ["uv", "run", "uvicorn", "app.main:app", "--reload"]
-FRONTEND_CMD = ["npm", "run", "dev"]
+# 프론트는 빌드 없는 정적 파일(HTML/CSS/JS) → 파이썬 내장 정적 서버로 제공.
+# cwd=FRONTEND 로 실행되므로 http.server 가 frontend/ 를 루트로 서빙한다.
+FRONTEND_CMD = [sys.executable, "-m", "http.server", "3000"]
 
 BACKEND_URL = "http://localhost:8000"
 FRONTEND_URL = "http://localhost:3000"
@@ -131,17 +133,8 @@ def terminate(label: str, proc: subprocess.Popen[bytes]) -> None:
 
 
 def main() -> int:
-    if not FRONTEND.exists():
-        print(f"[FATAL] frontend/ not found at {FRONTEND}", file=sys.stderr)
-        return 1
-    if not (FRONTEND / "node_modules").exists():
-        print(
-            tag(
-                "DEV",
-                "frontend/node_modules 가 없습니다. 먼저 `cd frontend && npm install` 을 실행하세요.",
-            ),
-            file=sys.stderr,
-        )
+    if not FRONTEND.exists() or not (FRONTEND / "index.html").exists():
+        print(f"[FATAL] frontend/index.html not found at {FRONTEND}", file=sys.stderr)
         return 1
 
     print(tag("DEV", f"Backend  → {BACKEND_URL}"))

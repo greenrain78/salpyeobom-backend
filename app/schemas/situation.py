@@ -20,3 +20,14 @@ class SituationOut(BaseModel):
 
 class ActiveSituationsData(BaseModel):
     situations: list[SituationOut]
+
+
+class ActionRequest(BaseModel):
+    action_type: str
+    action_note: str | None = None
+    status_update: str  # ActionStatus 값 ("조치 대기"/"현장 출동"/"조치 완료")
+
+
+class ActionResult(BaseModel):
+    situation_id: int
+    action_status: str

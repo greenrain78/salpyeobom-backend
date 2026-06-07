@@ -1,0 +1,82 @@
+/* 살펴봄 행정망 스타일 시트 */
+:root {
+    --primary-green: #14532d;
+    --accent-green: #16a34a;
+    --bg-light: #f0fdf4;
+    --border-color: #d1fae5;
+    --text-main: #1f2937;
+    --emergency-red: #ef4444;
+    --warning-orange: #f97316;
+}
+
+body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background-color: var(--bg-light);
+    color: var(--text-main);
+}
+
+.admin-sidebar {
+    background-color: var(--primary-green);
+}
+
+.content-panel {
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+}
+
+.active-row {
+    background-color: #f0fdf4;
+    border-left: 4px solid var(--accent-green);
+}
+
+/* ── 커스텀 스크롤바 ─────────────────────────── */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: #f0fdf4; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #86efac; border-radius: 10px; }
+
+/* ── 조치 버튼 비활성 상태 ────────────────────── */
+#btn-action-call:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* ── 애니메이션 ──────────────────────────────── */
+.pulse-red { animation: pulse 2s infinite; }
+
+@keyframes pulse {
+    0%   { transform: scale(1);   opacity: 1;   }
+    50%  { transform: scale(1.1); opacity: 0.7; }
+    100% { transform: scale(1);   opacity: 1;   }
+}
+
+/* ══════════════════════════════════════════════
+   모바일 사이드바 드로어 (< 1024px)
+══════════════════════════════════════════════ */
+@media (max-width: 1023px) {
+    #main-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100%;
+        z-index: 40;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+    #main-sidebar.sidebar-open {
+        transform: translateX(0);
+    }
+}
+
+/* 사이드바 오버레이 (모바일) */
+#sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 30;
+    transition: opacity 0.3s ease;
+}
+#sidebar-overlay.active {
+    display: block;
+}
