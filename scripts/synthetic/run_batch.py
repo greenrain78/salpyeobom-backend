@@ -61,7 +61,7 @@ def run_jsonl(per_class: int, out: Path, seed_base: int, start_date: dt.date) ->
             for r in rows:
                 f.write(json.dumps(r, ensure_ascii=False, default=_json_default) + "\n")
                 n += 1
-    print(f"[jsonl] {n}행 → {out}  ({time.time() - t0:.1f}s, {out.stat().st_size/1e6:.1f}MB)")
+    print(f"[jsonl] {n}행 → {out}  ({time.time() - t0:.1f}s, {out.stat().st_size / 1e6:.1f}MB)")
     return n
 
 
@@ -123,20 +123,29 @@ def main() -> None:
     ap.add_argument("--per-class", type=int, default=25)
     ap.add_argument("--sink", choices=["jsonl", "db"], default="jsonl")
     ap.add_argument("--out", type=Path, default=Path("out/synthetic/batch.jsonl"))
-    ap.add_argument("--from-jsonl", type=Path, default=None,
-                    help="sink=db 일 때 생성 대신 기존 JSONL 을 적재 (파일=DB 일치 보장)")
-    ap.add_argument("--skip-lines", type=int, default=0,
-                    help="--from-jsonl 적재 시 앞 N 줄 건너뜀 (이미 적재된 행 재적재 방지)")
+    ap.add_argument(
+        "--from-jsonl",
+        type=Path,
+        default=None,
+        help="sink=db 일 때 생성 대신 기존 JSONL 을 적재 (파일=DB 일치 보장)",
+    )
+    ap.add_argument(
+        "--skip-lines",
+        type=int,
+        default=0,
+        help="--from-jsonl 적재 시 앞 N 줄 건너뜀 (이미 적재된 행 재적재 방지)",
+    )
     ap.add_argument("--seed-base", type=int, default=1000)
     ap.add_argument("--start-date", default="2024-05-01")
-    ap.add_argument("--db-url", default=None,
-                    help="적재 대상 DB URL. 미지정 시 .env 의 DATABASE_URL(원격) 사용")
+    ap.add_argument(
+        "--db-url", default=None, help="적재 대상 DB URL. 미지정 시 .env 의 DATABASE_URL(원격) 사용"
+    )
     args = ap.parse_args()
     start = dt.date.fromisoformat(args.start_date)
 
     if args.sink == "jsonl":
         total = args.per_class * len(CLASSES)
-        print(f"생성: 클래스별 {args.per_class}명 ({total}명 × 60일 = {total*60}행) → jsonl")
+        print(f"생성: 클래스별 {args.per_class}명 ({total}명 × 60일 = {total * 60}행) → jsonl")
         run_jsonl(args.per_class, args.out, args.seed_base, start)
         return
 
@@ -148,7 +157,9 @@ def main() -> None:
         rows = _rows_from_jsonl(args.from_jsonl, skip=args.skip_lines)
     else:
         total = args.per_class * len(CLASSES)
-        print(f"생성+적재: 클래스별 {args.per_class}명 ({total*60}행) → DB {db_url.split('@')[-1]}")
+        print(
+            f"생성+적재: 클래스별 {args.per_class}명 ({total * 60}행) → DB {db_url.split('@')[-1]}"
+        )
         rows = _gen_flat(args.per_class, args.seed_base, start)
     asyncio.run(run_db(rows, db_url))
 

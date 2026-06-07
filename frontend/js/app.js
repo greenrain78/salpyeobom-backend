@@ -229,7 +229,7 @@ async function loadActiveSituations() {
 
 async function loadAllPatients() {
     try {
-        const { data } = await API.listPatients();
+        const { data } = await API.listAllPatients();
         const sorted = [...data.patients].sort((a, b) => levelOrder(a.cross_verification_level) - levelOrder(b.cross_verification_level));
         renderPatientsTable(sorted);
     } catch (_) {
@@ -370,10 +370,15 @@ function getLevelBadge(level) {
 async function loadPatientDetail(patientId, situationId) {
     currentSituationId = situationId;
     syncActionButton();
+    const overlay = el('detail-loading-overlay');
+    overlay?.classList.add('active');
     try {
         const { data } = await API.getPatientDetails(patientId);
         renderDetailPanel(data);
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+        overlay?.classList.remove('active');
+    }
 }
 
 function syncActionButton() {
@@ -463,7 +468,7 @@ async function loadPatientsPage() {
     tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-12 text-center text-slate-400 text-sm">데이터를 불러오는 중...</td></tr>';
 
     try {
-        const { data } = await API.listPatients();
+        const { data } = await API.listAllPatients();
         const sorted = [...data.patients].sort((a, b) => levelOrder(a.cross_verification_level) - levelOrder(b.cross_verification_level));
 
         setText('db-patient-count', `총 ${sorted.length}명`);
@@ -498,105 +503,113 @@ async function loadReportPage() {
     el('report-output') .classList.add('hidden');
     el('report-loading').classList.remove('hidden');
 
-    // 보고서 생성 시각 = 오늘 자정 (매일 00:00 생성 정책 반영)
-    const now       = new Date();
-    const pad       = n => String(n).padStart(2, '0');
-    const midnight  = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const today     = `${now.getFullYear()}년 ${pad(now.getMonth() + 1)}월 ${pad(now.getDate())}일`;
-    const genAt     = `${midnight.getFullYear()}-${pad(midnight.getMonth()+1)}-${pad(midnight.getDate())} 00:00`;
-
-    setText('report-title',        `${today} 일일 현황 보고서`);
-    setText('report-generated-at', genAt);
-
     try {
-        const [summaryRes, situationsRes, patientsRes] = await Promise.all([
-            API.getDashboardSummary(),
-            API.getActiveSituations(100),
-            API.listPatients(100),
-        ]);
+        const { data } = await API.listReports();
 
-        const summary    = summaryRes.data;
-        const situations = situationsRes.data.situations;
-        const patients   = [...patientsRes.data.patients].sort((a, b) => levelOrder(a.cross_verification_level) - levelOrder(b.cross_verification_level));
+        setText('report-today-count', data.today_count);
 
-        // 요약 통계
+        // 요약 통계 (위험/주의/사망/전체 — 전 기간 이력 기준)
         el('report-stats').innerHTML = `
             <div class="bg-red-50 border border-red-100 rounded p-4 text-center">
-                <p class="text-[10px] font-bold text-red-400 mb-1">응급 및 낙상</p>
-                <p class="text-3xl font-black text-red-600">${summary.emergency_count}</p>
+                <p class="text-[10px] font-bold text-red-400 mb-1">위험</p>
+                <p class="text-3xl font-black text-red-600">${data.risk_count}</p>
             </div>
             <div class="bg-orange-50 border border-orange-100 rounded p-4 text-center">
-                <p class="text-[10px] font-bold text-orange-400 mb-1">미응답 / 지연</p>
-                <p class="text-3xl font-black text-orange-600">${summary.warning_count}</p>
+                <p class="text-[10px] font-bold text-orange-400 mb-1">주의</p>
+                <p class="text-3xl font-black text-orange-600">${data.caution_count}</p>
             </div>
-            <div class="bg-green-50 border border-green-100 rounded p-4 text-center">
-                <p class="text-[10px] font-bold text-green-500 mb-1">정상 모니터링</p>
-                <p class="text-3xl font-black text-green-600">${summary.normal_count}</p>
+            <div class="bg-slate-100 border border-slate-200 rounded p-4 text-center">
+                <p class="text-[10px] font-bold text-slate-500 mb-1">사망</p>
+                <p class="text-3xl font-black text-slate-700">${data.death_count}</p>
             </div>
             <div class="bg-slate-50 border border-slate-200 rounded p-4 text-center">
-                <p class="text-[10px] font-bold text-slate-400 mb-1">전체 대상자</p>
-                <p class="text-3xl font-black text-slate-700">${summary.total_monitoring_count}</p>
+                <p class="text-[10px] font-bold text-slate-400 mb-1">전체 보고서</p>
+                <p class="text-3xl font-black text-slate-700">${data.total}</p>
             </div>`;
 
-        // 상황 발생 내역
-        const situationRows = situations.length
-            ? situations.map(s => `
-                <tr class="border-t border-slate-100">
-                    <td class="px-4 py-2.5 font-bold text-slate-800 text-sm">${s.name}</td>
-                    <td class="px-4 py-2.5"><span class="px-2 py-0.5 ${getCategoryBadge(s.category)} text-[10px] font-black rounded border">${s.category}</span></td>
-                    <td class="px-4 py-2.5 text-xs text-slate-600">${s.detail_reason || '-'}</td>
-                    <td class="px-4 py-2.5 text-xs font-mono text-slate-400">${formatTime(s.occurred_at)}</td>
-                    <td class="px-4 py-2.5">${getStatusCell(s.action_status)}</td>
-                </tr>`).join('')
-            : '<tr><td colspan="5" class="px-4 py-6 text-center text-slate-400 text-sm">금일 상황 발생 없음</td></tr>';
-
-        el('report-situations-wrap').innerHTML = `
-            <table class="w-full text-left">
-                <thead class="bg-slate-50">
-                    <tr class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
-                        <th class="px-4 py-2.5">대상자</th>
-                        <th class="px-4 py-2.5">구분</th>
-                        <th class="px-4 py-2.5">상세 사유</th>
-                        <th class="px-4 py-2.5">발생 시각</th>
-                        <th class="px-4 py-2.5">상태</th>
-                    </tr>
-                </thead>
-                <tbody>${situationRows}</tbody>
-            </table>`;
-
-        // 전체 대상자 현황
-        const patientRows = patients.map((p, i) => `
-            <tr class="border-t border-slate-100">
-                <td class="px-4 py-2.5 text-xs text-slate-400 font-mono">${String(i + 1).padStart(3, '0')}</td>
-                <td class="px-4 py-2.5 font-bold text-slate-800 text-sm">${p.name}</td>
-                <td class="px-4 py-2.5 text-xs text-slate-500">${p.address_summary}</td>
-                <td class="px-4 py-2.5">
-                    <span class="px-2 py-0.5 ${getLevelBadge(p.cross_verification_level)} text-[10px] font-black rounded border">
-                        ${p.cross_verification_level || '-'}
-                    </span>
-                </td>
-                <td class="px-4 py-2.5 text-xs text-slate-500">${p.manager_name || '-'}</td>
-            </tr>`).join('');
-
-        el('report-patients-wrap').innerHTML = `
-            <table class="w-full text-left">
-                <thead class="bg-slate-50">
-                    <tr class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
-                        <th class="px-4 py-2.5">#</th>
-                        <th class="px-4 py-2.5">이름</th>
-                        <th class="px-4 py-2.5">주소</th>
-                        <th class="px-4 py-2.5">AI 분석 등급</th>
-                        <th class="px-4 py-2.5">담당자</th>
-                    </tr>
-                </thead>
-                <tbody>${patientRows}</tbody>
-            </table>`;
+        // 일자별 그룹 목록 (전 기간, 최신일 우선)
+        const wrap = el('report-list-wrap');
+        if (!data.groups.length) {
+            wrap.innerHTML = '<div class="bg-white rounded shadow-sm p-12 text-center text-slate-400 text-sm">생성된 보고서가 없습니다.</div>';
+        } else {
+            const now      = new Date();
+            const pad      = n => String(n).padStart(2, '0');
+            const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+            wrap.innerHTML = data.groups.map(g => reportDayGroup(g, g.date === todayStr)).join('');
+            wrap.querySelectorAll('button[data-report-id]').forEach(btn => {
+                btn.addEventListener('click', () => openReport(+btn.dataset.reportId));
+            });
+        }
 
         el('report-loading').classList.add('hidden');
         el('report-output') .classList.remove('hidden');
 
     } catch (_) {
         el('report-loading').innerHTML = '<p class="text-red-400 text-sm">보고서를 불러오지 못했습니다.</p>';
+    }
+}
+
+function reportDayGroup(g, isToday) {
+    const rows = g.items.map(reportRow).join('');
+    const todayBadge = isToday
+        ? '<span class="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-black rounded">오늘</span>'
+        : '';
+    return `
+    <div class="bg-white rounded shadow-sm overflow-hidden ${isToday ? 'ring-2 ring-green-300' : ''}">
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest">${formatDate(g.date)}${todayBadge}</h4>
+            <span class="text-[11px] font-bold text-slate-400">${g.count}건</span>
+        </div>
+        <table class="w-full text-left">
+            <thead class="bg-slate-50">
+                <tr class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
+                    <th class="px-4 py-2.5">대상자</th>
+                    <th class="px-4 py-2.5">위험도</th>
+                    <th class="px-4 py-2.5">제목</th>
+                    <th class="px-4 py-2.5">이메일 발송</th>
+                    <th class="px-4 py-2.5 text-right">보고서</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    </div>`;
+}
+
+function reportRow(r) {
+    const emailed = r.emailed_at
+        ? `<span class="text-[11px] text-green-600 font-bold"><i class="fa-solid fa-circle-check mr-1"></i>${r.emailed_to || '발송됨'}</span>`
+        : '<span class="text-[11px] text-slate-400">미발송</span>';
+    return `
+    <tr class="border-t border-slate-100 hover:bg-slate-50">
+        <td class="px-4 py-2.5 font-bold text-slate-800 text-sm">${r.patient_name}</td>
+        <td class="px-4 py-2.5"><span class="px-2 py-0.5 ${getRiskBadge(r.risk_level)} text-[10px] font-black rounded border">${r.risk_level}</span></td>
+        <td class="px-4 py-2.5 text-xs text-slate-600">${r.title}</td>
+        <td class="px-4 py-2.5">${emailed}</td>
+        <td class="px-4 py-2.5 text-right">
+            <button data-report-id="${r.id}" class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-[11px] font-bold rounded transition-colors">
+                <i class="fa-solid fa-file-pdf mr-1"></i>PDF 보기
+            </button>
+        </td>
+    </tr>`;
+}
+
+function getRiskBadge(risk) {
+    if (risk === '위험') return 'bg-red-100 text-red-600 border-red-200';
+    if (risk === '주의') return 'bg-orange-100 text-orange-600 border-orange-200';
+    return 'bg-slate-200 text-slate-600 border-slate-300';  // 사망
+}
+
+function formatDate(iso) {
+    if (!iso) return '-';
+    const [y, m, d] = iso.split('-');
+    return `${y}년 ${m}월 ${d}일`;
+}
+
+async function openReport(reportId) {
+    try {
+        await API.openReportPdf(reportId);
+    } catch (_) {
+        showToast('PDF 를 불러오지 못했습니다.', 'error');
     }
 }
 

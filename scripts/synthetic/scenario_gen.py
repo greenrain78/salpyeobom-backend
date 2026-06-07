@@ -60,7 +60,9 @@ def _persona(rng: random.Random, klass: Klass) -> dict[str, Any]:
         "vision": rng.choice(["양호", "보통", "보통", "나쁨"]),
         "hearing": rng.choice(["양호", "보통", "보통", "나쁨"]),
         "dosage": dosage,
-        "district": rng.choice(["도시", "농촌"]) if klass != "사망" else rng.choice(["농촌", "농촌", "도시"]),
+        "district": rng.choice(["도시", "농촌"])
+        if klass != "사망"
+        else rng.choice(["농촌", "농촌", "도시"]),
         "house_structure": rng.choice(["주택", "아파트"]),
         "room_no": rng.randint(1, 3),
         "bath_location": "옥내",  # 관측 전부 옥내
@@ -81,7 +83,12 @@ _PYEONGSI_LIFE = [
 _EMG_ARC = [
     ("관절염", "무릎 관절염", "거동이 점점 줄고", "화장실을 가다 욕실에서 미끄러져 넘어졌다"),
     ("어지럼", "기립성 저혈압", "어지럼이 잦아지고", "거실에서 일어서다 정신을 잃고 쓰러졌다"),
-    ("감기", "독감 합병증", "기침과 미열로 수면이 무너지고", "탈수와 기력 저하로 주저앉아 일어나지 못했다"),
+    (
+        "감기",
+        "독감 합병증",
+        "기침과 미열로 수면이 무너지고",
+        "탈수와 기력 저하로 주저앉아 일어나지 못했다",
+    ),
     ("심장", "심방세동", "가슴 두근거림과 호흡곤란이 심해지고", "흉통으로 의식이 흐려졌다"),
 ]
 _DTH_ARC = [
@@ -117,7 +124,9 @@ def _activity_day(rng: random.Random, day_mean: float, night_level: float) -> li
     return hours
 
 
-def _sleep_window(rng: random.Random, bed_center: int, wake_center: int, jitter: int) -> dict[str, int]:
+def _sleep_window(
+    rng: random.Random, bed_center: int, wake_center: int, jitter: int
+) -> dict[str, int]:
     start = int(_clamp(bed_center + rng.randint(-jitter, jitter), 0, 1439))
     end = int(_clamp(wake_center + rng.randint(-jitter, jitter), 0, 1439))
     return {"start_min": start, "end_min": end}
@@ -301,7 +310,13 @@ def generate(klass: Klass, seed: int) -> dict[str, Any]:
         "응급": _daily_emergency,
         "사망": _daily_death,
     }[klass](rng, persona)
-    obj = {"class": klass, "persona": persona, "scenario": scenario, "daily": daily, "records": records}
+    obj = {
+        "class": klass,
+        "persona": persona,
+        "scenario": scenario,
+        "daily": daily,
+        "records": records,
+    }
     validate(obj)
     return obj
 
@@ -317,17 +332,23 @@ def validate(obj: dict) -> None:
     for i, d in enumerate(daily, 1):
         assert d["day"] == i, f"day index {d['day']} != {i}"
         a = d["activity_by_hour"]
-        assert len(a) == 24 and all(isinstance(x, int) and 0 <= x <= 3 for x in a), f"day{i} activity"
+        assert len(a) == 24 and all(isinstance(x, int) and 0 <= x <= 3 for x in a), (
+            f"day{i} activity"
+        )
         assert 0 <= d["sleep"]["start_min"] <= 1439 and 0 <= d["sleep"]["end_min"] <= 1439
         for b in d["bath_events"]:
             assert 0 <= b["hour"] <= 23 and b["dur_min"] >= 0
         for w in d["outgoing_windows"]:
             assert 0 <= w["start_min"] <= 1439 and 0 <= w["end_min"] <= 1439
         e = d["env_base"]
-        assert 22 <= e["temp"] <= 33 and 42 <= e["humi"] <= 72 and 0 <= e["illu_peak"] <= 125, f"day{i} env"
+        assert 22 <= e["temp"] <= 33 and 42 <= e["humi"] <= 72 and 0 <= e["illu_peak"] <= 125, (
+            f"day{i} env"
+        )
     # 클래스 불변값
     if klass == "사망":
-        assert all(d["bath_events"] == [] for d in daily), "사망 클래스는 목욕 0 (bath_events 항상 [])"
+        assert all(d["bath_events"] == [] for d in daily), (
+            "사망 클래스는 목욕 0 (bath_events 항상 [])"
+        )
         assert obj["records"]["death_record"] and obj["records"]["emergency_record"] is None
     elif klass == "응급":
         assert obj["records"]["emergency_record"] and obj["records"]["death_record"] is None
@@ -364,8 +385,10 @@ def main(argv: list[str]) -> None:
         path = OUT_DIR / f"{klass}_seed{seed}.json"
         path.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
         p = obj["persona"]
-        print(f"[{klass} seed={seed}] {p['age']}세 {p['sex']} {p['dosage']} {p['district']} "
-              f"base={p['base_activity']} → {path.relative_to(OUT_DIR.parents[1])}")
+        print(
+            f"[{klass} seed={seed}] {p['age']}세 {p['sex']} {p['dosage']} {p['district']} "
+            f"base={p['base_activity']} → {path.relative_to(OUT_DIR.parents[1])}"
+        )
         print(f"  서사: {obj['scenario'][:90]}…")
         print(_summary(obj))
         print()

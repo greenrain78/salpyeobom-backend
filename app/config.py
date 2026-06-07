@@ -1,10 +1,15 @@
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# 기본: .env(원격/기본) → .env.local(로컬 개발용) 순으로 로드, 뒤 파일이 우선 → 로컬 DB.
+# USE_REMOTE_DB=1 이면 .env.local 을 건너뛰고 .env 만 로드 → 원격 DB.
+# (poe run-remote 가 이 변수를 설정한다.)
+_ENV_FILES = (".env",) if os.getenv("USE_REMOTE_DB") == "1" else (".env", ".env.local")
 
 
 class Settings(BaseSettings):
-    # .env(원격/기본) → .env.local(로컬 개발용) 순서로 로드.
-    # 같은 키가 있으면 뒤 파일(.env.local)이 우선한다.
-    model_config = SettingsConfigDict(env_file=(".env", ".env.local"), extra="ignore")
+    model_config = SettingsConfigDict(env_file=_ENV_FILES, extra="ignore")
 
     DATABASE_URL: str = "postgres://user:pass@localhost:5432/salpyeobom"
     SECRET_KEY: str = "change-me-in-production"

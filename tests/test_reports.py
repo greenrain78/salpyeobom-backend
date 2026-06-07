@@ -1,9 +1,25 @@
+from datetime import UTC, datetime
+
 import pytest
 from httpx import AsyncClient
 
 import app.routers.reports as reports_router
+from app.models.patient import Patient
+from app.models.report import Report
 
 EMAIL_URL = "/api/v1/reports/email"
+LIST_URL = "/api/v1/reports"
+
+
+async def _make_patient(patient_id: str, name: str, level: str) -> Patient:
+    return await Patient.create(
+        patient_id=patient_id,
+        name=name,
+        age=80,
+        address_full="서울시 강남구 테스트로 1",
+        address_summary="강남구",
+        cross_verification_level=level,
+    )
 
 
 async def test_email_report_success(auth_client: AsyncClient, monkeypatch: pytest.MonkeyPatch):
@@ -39,4 +55,79 @@ async def test_email_report_not_found(auth_client: AsyncClient):
         EMAIL_URL,
         json={"recipient": "manager@example.com", "report_name": "no-such-report.docx"},
     )
+    assert res.status_code == 404
+
+
+# ── 보고서 목록 ──────────────────────────────────────────────────────────────
+
+
+async def test_list_reports_success(auth_client: AsyncClient):
+    """목록 조회 — 위험/주의/사망 집계와 일자별 그룹, 등급 파생을 검증한다."""
+    p_a = await _make_patient("661", "김영숙", "A")
+    p_b = await _make_patient("662", "김순자", "B")
+    await Report.create(
+        patient=p_a,
+        title="661 보고서",
+        file_name="r_a.pdf",
+        generated_at=datetime(2026, 6, 7, tzinfo=UTC),
+    )
+    await Report.create(
+        patient=p_b,
+        title="662 보고서",
+        file_name="r_b.pdf",
+        generated_at=datetime(2026, 6, 6, tzinfo=UTC),
+    )
+
+    res = await auth_client.get(LIST_URL)
+    assert res.status_code == 200
+    data = res.json()["data"]
+    assert data["total"] == 2
+    assert data["risk_count"] == 1
+    assert data["caution_count"] == 1
+    assert data["death_count"] == 0
+    assert len(data["groups"]) == 2
+
+    first_item = data["groups"][0]["items"][0]
+    assert first_item["patient_name"] == "김영숙"
+    assert first_item["risk_level"] == "위험"
+
+
+async def test_list_reports_date_filter(auth_client: AsyncClient):
+    """date 필터는 해당 일자 보고서만 반환한다."""
+    p = await _make_patient("661", "김영숙", "A")
+    await Report.create(
+        patient=p,
+        title="t1",
+        file_name="d1.pdf",
+        generated_at=datetime(2026, 6, 7, tzinfo=UTC),
+    )
+    await Report.create(
+        patient=p,
+        title="t2",
+        file_name="d2.pdf",
+        generated_at=datetime(2026, 6, 5, tzinfo=UTC),
+    )
+
+    res = await auth_client.get(f"{LIST_URL}?date=2026-06-07")
+    assert res.status_code == 200
+    data = res.json()["data"]
+    assert data["total"] == 1
+    assert data["groups"][0]["items"][0]["file_name"] == "d1.pdf"
+
+
+async def test_list_reports_requires_auth(client: AsyncClient):
+    """토큰 없이 목록 호출 시 401/403."""
+    res = await client.get(LIST_URL)
+    assert res.status_code in (401, 403)
+
+
+async def test_report_file_requires_auth(client: AsyncClient):
+    """토큰 없이 파일 호출 시 401/403."""
+    res = await client.get(f"{LIST_URL}/1/file")
+    assert res.status_code in (401, 403)
+
+
+async def test_report_file_not_found(auth_client: AsyncClient):
+    """존재하지 않는 보고서 파일 요청은 404."""
+    res = await auth_client.get(f"{LIST_URL}/99999/file")
     assert res.status_code == 404

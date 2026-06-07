@@ -40,11 +40,15 @@
 
 | 작업 | 로드할 파일 |
 |------|------------|
-| 새 엔드포인트 추가 | 관련 `routers/*.py` + `schemas/*.py` + `models/*.py` |
+| 새 엔드포인트 추가 | 관련 `routers/*.py` + `schemas/*.py` + `models/*.py` (+ 로직 분리 시 `services/*.py`) |
+| 비즈니스 로직(필터·집계·변환) | `services/*.py` + 호출하는 `routers/*.py` — 순수 함수로 작성, DB 없이 단위 테스트 |
 | 인증 수정 | `core/security.py`, `core/dependencies.py`, `routers/auth.py` |
-| 모델 변경 | `docs/database-schema.md` (먼저 읽기 — 전체 스키마 파악) + `models/*.py` + 관련 `schemas/*.py` + 기존 마이그레이션 — 절차는 [CLAUDE.md "DB 스키마 변경 패턴"](./CLAUDE.md#db-스키마-변경-패턴) |
+| 모델 변경 | `docs/database-schema.md` (먼저 읽기 — 전체 스키마 파악) + `models/*.py` (+ `models/enums.py`) + 관련 `schemas/*.py` + 기존 마이그레이션 — 절차는 [CLAUDE.md "DB 스키마 변경 패턴"](./CLAUDE.md#db-스키마-변경-패턴) |
 | DB 구조 조회/질문 | `docs/database-schema.md` (4개 테이블 + ERD + 필드 의미가 한 문서에 정리됨) |
-| 테스트 작성 | `tests/conftest.py` + 대상 `routers/*.py` |
+| 보고서/이메일 | `core/email.py` + `routers/reports.py` + `scripts/report_generate.py` — 흐름은 [CLAUDE.md "데이터·보고서·이메일 파이프라인"](./CLAUDE.md#데이터보고서이메일-파이프라인) |
+| 합성 데이터 | `scripts/synthetic/*.py` + `models/adl_raw.py` (스키마 정합) |
+| 프론트엔드 | `frontend/` (정적 HTML/CSS/JS) + 마운트 지점 `app/main.py` |
+| 테스트 작성 | `tests/conftest.py` + 대상 `routers/*.py` 또는 `services/*.py` |
 | 배포 스크립트 | `scripts/` + `pyproject.toml` ([tool.poe.tasks]) |
 
 ---

@@ -18,7 +18,7 @@
 | DBMS | PostgreSQL |
 | ORM | Tortoise ORM (async) + asyncpg |
 | 마이그레이션 | Aerich |
-| 테이블 수 | 4개 (+ `aerich` 마이그레이션 추적 테이블, 자동 생성) |
+| 테이블 수 | 5개 (+ `aerich` 마이그레이션 추적 테이블, 자동 생성) |
 
 ### 모델 파일 ↔ 테이블 매핑
 
@@ -27,6 +27,7 @@
 | `app/models/user.py` | `User` | `users` | 인증 |
 | `app/models/patient.py` | `Patient` | `patients` | 환자/모니터링 |
 | `app/models/patient.py` | `Situation` | `situations` | 환자/모니터링 |
+| `app/models/report.py` | `Report` | `reports` | 환자/모니터링 |
 | `app/models/adl_raw.py` | `AdlRawRecord` | `adl_raw_records` | ADL 원시 샘플 |
 
 모델 등록은 `app/database.py` 의 `MODELS` 리스트에서 관리된다.
@@ -38,6 +39,7 @@
 ```mermaid
 erDiagram
     Patient ||--o{ Situation : "situations"
+    Patient ||--o{ Report : "reports"
 
     User {
         int id PK
@@ -53,6 +55,12 @@ erDiagram
         int situation_id PK
         string patient_id FK
         string category
+    }
+    Report {
+        int id PK
+        string patient_id FK
+        string file_name
+        datetime generated_at
     }
     AdlRawRecord {
         int id PK
@@ -105,6 +113,18 @@ PK가 정수 auto-increment가 아닌 **외부 시스템 ID 문자열**(`patient
 | `manager_name` | varchar(64) | null | 담당 관리자명 | `"이영희"` |
 | `management_level` | varchar(64) | null | 관리 등급 | `"집중 관리군 (1등급)"`, `"자립 관리군 (3등급)"` |
 | `diseases` | jsonb | default `[]` | 질병 목록 (문자열 배열) | `["고혈압", "초기 치매", "관절염"]` |
+| `cross_verification_level` | varchar(8) | null | 교차 검증 위험등급 | `"A"`(긴급)·`"B"`(높음)·`"C"`(정상) |
+| `ai_alert_title` | varchar(128) | null | AI 분석 경보 제목 | `"야간 활동 급증 — 낙상 위험"` |
+| `ai_alert_desc` | text | null | AI 분석 경보 본문 | `"최근 1주 야간 AIX 비율이 2배 증가…"` |
+| `doc_no` | varchar(32) | null | 전자 문서 열람 번호 | `"2026-0661"` |
+| `next_visit_time` | varchar(32) | null | 다음 방문 일정 | `"2026-06-12 14:00"` |
+| `next_visit_plan` | varchar(128) | null | 방문 계획 | `"혈압 측정 및 복약 점검"` |
+| `profile_image_url` | varchar(255) | null | 프로필 이미지 URL | `null` |
+
+위 7개 nullable 컬럼은 `adl_raw_records` 에서 파생된 메타로, 서브에이전트가 오프라인 1회
+생성해 `data/derived/patients.jsonl` 로 고정하고 `scripts/load_derived.py` 가 적재한다.
+프론트(`frontend/js/app.js`)의 환자 목록 등급 배지·상세 패널(AI 경보·방문 일정·문서번호)이
+이 값을 읽는다.
 
 **역참조**: `situations`
 
@@ -121,6 +141,27 @@ PK가 정수 auto-increment가 아닌 **외부 시스템 ID 문자열**(`patient
 | `occurred_at` | timestamptz | NOT NULL, INDEX | 발생 시각 (정렬용 인덱스) | `2026-04-08T11:33:45Z` |
 | `action_status` | varchar(16) | default `"조치 대기"`, ENUM(`ActionStatus`) | 조치 진행 상태 (활성 여부의 단일 출처 — `"조치 완료"` = 비활성, `Situation.is_active` 파생) | `"조치 대기"`, `"현장 출동"`, `"조치 완료"` |
 | `created_at` | timestamptz | auto_now_add | 레코드 생성 시각 | `2026-04-08T11:34:00Z` |
+
+#### `reports` (`Report`)
+
+생성·발송된 위험예측 보고서 이력. 한 행 = `out/reports/` 에 생성된 보고서(PDF) 1건.
+환자 1 : N 보고서. `scripts/report_generate.py` 가 생성 시 자가 등록하고,
+`POST /api/v1/reports/email` 이 발송 성공 시 `emailed_at`/`emailed_to` 를 스탬프한다.
+
+| 필드 | 타입 | 제약 | 의미 | 예시값 |
+|------|------|------|------|--------|
+| `id` | int | PK, auto | 보고서 고유 ID | `1` |
+| `patient_id` | varchar(64) | FK → `patients`, NOT NULL, INDEX | 대상 환자 (related_name `reports`) | `"661"` |
+| `title` | varchar(128) | NOT NULL | 보고서 제목 | `"661 위험예측 보고서"` |
+| `file_name` | varchar(255) | NOT NULL | `out/reports/` 내 PDF 파일명 | `"위험예측보고서_661_20260607.pdf"` |
+| `generated_at` | timestamptz | NOT NULL, INDEX | 보고서 일자/시각 (정렬·일자 그룹용) | `2026-06-07T00:00:00Z` |
+| `emailed_at` | timestamptz | null | 이메일 발송 시각 (미발송 시 null) | `2026-06-07T09:30:00Z` |
+| `emailed_to` | varchar(255) | null | 발송 수신자 | `"manager@example.com"` |
+| `created_at` | timestamptz | auto_now_add | 레코드 생성 시각 | `2026-06-07T00:00:05Z` |
+
+> **위험등급은 저장하지 않는다.** 목록의 위험/주의/사망 분류는 조회 시 FK 대상자의
+> `cross_verification_level`(A→위험·B→주의·C→사망)에서 파생한다 (`app/services/reports.py:risk_of`).
+> 기본 정렬은 `generated_at` 내림차순(`Meta.ordering`).
 
 ---
 
@@ -268,6 +309,39 @@ FK 관계가 없다. 환자 식별자도 `care_recipient_id`(varchar)로 별도 
 - **운영 메타 6 컬럼**: `Patient.profile_image_url`, `Patient.doc_no`,
   `Patient.next_visit_time`, `Patient.next_visit_plan`, `Situation.is_active`,
   `SituationAction.status_update`
+
+### 파생 메타 컬럼 재도입 + AI/등급 추가 (2026-06-07)
+
+위 보류분 중 운영 메타 4 컬럼(`profile_image_url`·`doc_no`·`next_visit_time`·
+`next_visit_plan`)을 `Patient` 에 재도입하고, 교차 검증 위험등급·AI 분석 문구 3 컬럼
+(`cross_verification_level`·`ai_alert_title`·`ai_alert_desc`)을 추가했다(모두 nullable,
+additive 마이그레이션). `Situation.is_active` 는 모델 프로퍼티로 살아 있어(`action_status`
+파생) 컬럼으로 되돌리지 않는다. 값의 출처는 런타임 시더가 아니라 오프라인 1회 파생해
+고정한 JSONL 아티팩트이며 `scripts/load_derived.py` 가 적재한다. 시드(런타임 wipe→재생성)
+개념은 폐기했다. 두 가지 아티팩트가 있다:
+
+- `data/derived/patients.jsonl` — 로컬 샘플(`adl_raw_records` 6명). 환자 전체 필드 + 상황
+  (과거 응급/사망 = 완료, 등급 기반 활성 1건)을 담아 `poe load-derived` 로 적재한다.
+- `data/derived/patients_syn.jsonl` — 합성 시나리오(`SYN-평소/응급/사망` 3,000명) 환자.
+  서브에이전트 배치 생성(이름·질병·주소·등급·AI 문구)에 활성/과거 상황을 결정론으로 결합.
+  활성 응급 상황 category 는 원본 `emergency_record` 사건 유형에서 파생한다(낙상 의심·심혈관
+  응급·탈수·쇠약 응급·의식저하 응급). `USE_REMOTE_DB=1 python scripts/load_derived.py
+  data/derived/patients_syn.jsonl` 로 원격에 적재한다.
+
+적재기는 레코드에 `situations` 키가 **있을 때만** 해당 환자의 상황을 새로고침하고, 없으면
+기존 상황을 보존한다(컬럼만 보강하는 경로). 위험등급(`cross_verification_level`)·AI 문구는
+서브에이전트 오프라인 배치로 1회 생성해 고정했다.
+
+---
+
+### 보고서 이력 테이블 추가 (2026-06-07)
+
+`reports` 테이블을 신설했다. 기존에는 보고서가 `out/reports/` 의 loose 파일로만 존재해
+"이메일로 발송된 보고서를 날짜별·대상자별로 조회"할 방법이 없었다. 새 테이블은 생성된
+보고서 1건을 한 행으로 기록하며(`scripts/report_generate.py` 가 생성 시 자가 등록),
+프론트 "보고서 조회" 화면이 `GET /api/v1/reports`(전 기간 일자별 그룹 + 위험/주의/사망
+집계)와 `GET /api/v1/reports/{id}/file`(PDF 인라인 서빙)으로 목록·열람한다. 위험등급은
+별도 컬럼 없이 대상자 `cross_verification_level` 에서 파생한다.
 
 ---
 

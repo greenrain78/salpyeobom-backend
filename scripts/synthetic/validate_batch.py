@@ -21,8 +21,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # 프로젝트 루트 (app import)
 
 DB_URL = "postgres://spb_user:spb123@db.salpyeobom.kro.kr:15432/spb_db"
-METRICS = ["aix_d", "total_aix_sum", "night_aix_ratio", "bath_count_d",
-           "outgoing_count_d", "total_sleep_period"]
+METRICS = [
+    "aix_d",
+    "total_aix_sum",
+    "night_aix_ratio",
+    "bath_count_d",
+    "outgoing_count_d",
+    "total_sleep_period",
+]
 # 실데이터 라벨: id1~30 응급, id31~60 사망. 평시는 실데이터 없음(외삽) → KS 생략.
 REAL_CLASS = {"응급": (1, 30), "사망": (31, 60)}
 
@@ -34,6 +40,7 @@ def _ks_2samp(a: list[float], b: list[float]) -> tuple[float, float]:
     vals = sorted(set(sa) | set(sb))
     d = 0.0
     import bisect
+
     for v in vals:
         f1 = bisect.bisect_right(sa, v) / n1
         f2 = bisect.bisect_right(sb, v) / n2
@@ -81,7 +88,7 @@ def _ks_matched(real: list[float], synth: list[float], draws: int = 21) -> tuple
 def _stats(v: list[float]) -> str:
     if not v:
         return "—"
-    return f"{min(v):>6.0f}/{sum(v)/len(v):>6.0f}/{max(v):>6.0f}"
+    return f"{min(v):>6.0f}/{sum(v) / len(v):>6.0f}/{max(v):>6.0f}"
 
 
 async def _load_real() -> dict[str, dict[str, list[float]]]:
@@ -93,7 +100,9 @@ async def _load_real() -> dict[str, dict[str, list[float]]]:
     out: dict[str, dict[str, list[float]]] = {}
     for klass, (lo, hi) in REAL_CLASS.items():
         rows = await AdlRawRecord.filter(id__range=(lo, hi)).all()
-        out[klass] = {m: [getattr(r, m) for r in rows if getattr(r, m) is not None] for m in METRICS}
+        out[klass] = {
+            m: [getattr(r, m) for r in rows if getattr(r, m) is not None] for m in METRICS
+        }
     await Tortoise.close_connections()
     return out
 
@@ -137,8 +146,10 @@ def main() -> None:
             ok = p_match > 0.05
             total += 1
             passes += ok
-            print(f"  {m:<18} {_stats(r):>22} | {_stats(s):>22} | "
-                  f"p={p_full:.3f} | p={p_match:.3f} {'✓' if ok else '×'}")
+            print(
+                f"  {m:<18} {_stats(r):>22} | {_stats(s):>22} | "
+                f"p={p_full:.3f} | p={p_match:.3f} {'✓' if ok else '×'}"
+            )
 
     print("\n" + "=" * 78)
     print("클래스 분리도 (시그니처 — 분류기가 의존하는 결정축)")
@@ -147,8 +158,10 @@ def main() -> None:
         s = synth[klass]
         bath0 = sum(1 for x in s["bath_count_d"] if x == 0) / len(s["bath_count_d"])
         na = s["night_aix_ratio"]
-        print(f"  [{klass}] 목욕=0 비율={bath0:.0%}  night_aix(avg)={sum(na)/len(na):6.1f}  "
-              f"aix_d(avg)={sum(s['aix_d'])/len(s['aix_d']):.0f}")
+        print(
+            f"  [{klass}] 목욕=0 비율={bath0:.0%}  night_aix(avg)={sum(na) / len(na):6.1f}  "
+            f"aix_d(avg)={sum(s['aix_d']) / len(s['aix_d']):.0f}"
+        )
     print("\n  기대: 사망 목욕=0 100% · 응급 night_aix 大(수천) · 사망/평시 night_aix 小")
     print(f"\nKS 합격(n-매칭): {passes}/{total} 지표 (p>0.05)")
 

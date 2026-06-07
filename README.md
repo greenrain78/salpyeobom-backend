@@ -55,20 +55,14 @@ bash scripts/install.sh
 uv tool install poethepoet
 # 프론트는 정적 파일이라 별도 설치 과정이 없다.
 
-# 백엔드 + 프론트엔드 한 번에 (권장)
-poe dev                 # BE :8000 + FE :3000 동시 (= uv run python dev.py)
-.\dev                   # Windows — dev.cmd 래퍼 (동일)
-
-# 개별 실행
-poe back                # 백엔드만 (uvicorn --reload, :8000)
-poe front               # 프론트만 (정적 파일, :3000)
+# 앱 실행 — 백엔드가 frontend/ 를 정적 서빙하므로 한 프로세스로 API+프론트가 모두 :8000 에 뜬다.
+poe run                 # API+프론트 (uvicorn --reload, :8000) — 로컬 DB
+poe run-remote          # 동일하되 원격 DB(.env) 연결
 
 poe test                # 테스트 실행 (SQLite in-memory)
 poe check               # lint + format + typecheck + test (커밋 전 필수)
 poe fix                 # ruff 자동 수정 (lint autofix + format)
 poe migrate             # aerich upgrade
-poe seed-users          # 데모 admin 계정 시드 (admin/admin1234, 멱등)
-poe seed-from-adl       # adl_raw_records → Patient/Situation 파생 (멱등, 매번 초기화)
 
 poe                     # 전체 태스크 목록
 ```
@@ -91,8 +85,10 @@ bash scripts/deploy.sh
 | `dashboard` | `/api/v1/dashboard` | `GET /summary` |
 | `patients` | `/api/v1/patients` | `GET ""`, `GET /{id}/details` |
 | `situations` | `/api/v1/situations` | `GET /active` |
+| `adl_raw` | `/api/v1/adl-raw` | `GET ""`, `GET /recipients`, `GET /recipients/{id}/records`, `GET /{id}` |
+| `reports` | `/api/v1/reports` | `POST /email` (보고서 PDF 이메일 발송) |
 
-OpenAPI 문서: 개발 서버 기동 후 `http://localhost:8000/docs`.
+그 외 경로(`/`, css/js 등)는 `frontend/` 정적 파일로 서빙된다. OpenAPI 문서: 개발 서버 기동 후 `http://localhost:8000/docs`.
 
 ---
 
@@ -100,16 +96,20 @@ OpenAPI 문서: 개발 서버 기동 후 `http://localhost:8000/docs`.
 
 ```
 app/
-├── main.py          # FastAPI 앱 팩토리 (create_app)
-├── config.py        # 환경변수 (Settings)
+├── main.py          # FastAPI 앱 팩토리 (create_app) + frontend/ 정적 마운트
+├── config.py        # 환경변수 (Settings) — .env + .env.local
 ├── database.py      # Tortoise 초기화 + 모델 등록
-├── core/            # 인증·예외·의존성
-├── models/          # Tortoise ORM 모델
-├── routers/         # HTTP 엔드포인트
-└── schemas/         # Pydantic 입출력 스키마
+├── core/            # 인증·예외·의존성·이메일(email.py)
+├── models/          # Tortoise ORM 모델 (+ enums.py)
+├── routers/         # HTTP 엔드포인트 (얇게)
+├── services/        # 비즈니스 로직 (필터·집계·변환 — 순수 함수)
+└── schemas/         # Pydantic 입출력 스키마 (common.py: SuccessResponse[T])
 
+frontend/            # 정적 복지사 대시보드 (백엔드가 / 에 서빙)
 tests/               # pytest (SQLite in-memory)
-scripts/             # install/deploy/seed/start/stop/status
+scripts/             # install/deploy/start/stop/status + load_derived/report/synthetic
+data/derived/        # patients.jsonl — 오프라인 파생 메타 (load_derived 적재)
+out/                 # 산출물 reports/(.docx,PDF), synthetic/ (gitignore)
 docs/                # database-schema.md 등 레퍼런스
 notebooks/           # ADL 데이터 적재·검증·분석 노트북
 migrations/          # aerich 마이그레이션 (gitignore)

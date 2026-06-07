@@ -7,6 +7,7 @@ from app.models.patient import Patient
 from app.schemas.common import SuccessResponse
 from app.schemas.patient_monitoring import (
     Administration,
+    AIAnalysis,
     PatientDetail,
     PatientListData,
     PatientListItem,
@@ -53,10 +54,20 @@ async def get_patient_details(
             name=patient.name,
             age=f"만 {patient.age}세",
             address_full=patient.address_full,
+            cross_verification_level=patient.cross_verification_level,
+            doc_no=patient.doc_no,
+            profile_image_url=patient.profile_image_url,
+            ai_analysis=AIAnalysis(
+                cross_verification_level=patient.cross_verification_level,
+                alert_title=patient.ai_alert_title,
+                alert_desc=patient.ai_alert_desc,
+            ),
             administration=Administration(
                 manager_name=patient.manager_name,
                 management_level=patient.management_level,
                 diseases=patient.diseases,
+                next_visit_time=patient.next_visit_time,
+                next_visit_plan=patient.next_visit_plan,
             ),
         )
     )

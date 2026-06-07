@@ -20,8 +20,38 @@ from typing import Any
 
 # id 1~60 에서 관측된 aix_1 비제로 이산 레벨(33 간격, 30단계). 비제로는 이 집합에서만.
 AIX_LEVELS = [33 * k if k <= 2 else round(k * 1000 / 30) for k in range(1, 31)]
-AIX_LEVELS = [33, 66, 100, 133, 166, 200, 233, 266, 300, 333, 366, 400, 433, 466,
-              500, 533, 566, 600, 633, 666, 700, 733, 766, 800, 833, 866, 900, 933, 966, 1000]
+AIX_LEVELS = [
+    33,
+    66,
+    100,
+    133,
+    166,
+    200,
+    233,
+    266,
+    300,
+    333,
+    366,
+    400,
+    433,
+    466,
+    500,
+    533,
+    566,
+    600,
+    633,
+    666,
+    700,
+    733,
+    766,
+    800,
+    833,
+    866,
+    900,
+    933,
+    966,
+    1000,
+]
 # 비제로 레벨 가중치: 관측 평균 ~354 에 맞춰 중간(index~10, 333~366) 중심 종형.
 _AIX_W = [max(0.02, 2.718 ** (-((k - 10) ** 2) / 60.0)) for k in range(30)]
 
@@ -37,7 +67,9 @@ PROFILE: dict[str, dict[str, Any]] = {
         "place": {254: 15078, 0: 14222, 20: 8028, 1: 3301, 255: 2571},
         "outgoing": {255: 27593, 254: 15607},
         "sleep_depth": {0: 32363, 1: 3208, 2: 3116, 3: 117, 4: 4396},
-        "aix_h_zero": 0.39, "aix_h_max": 759, "aix_h_mean": 55,
+        "aix_h_zero": 0.39,
+        "aix_h_max": 759,
+        "aix_h_mean": 55,
         "night_aix_env": (0.0, 20417.0),
     },
     "사망": {
@@ -46,7 +78,9 @@ PROFILE: dict[str, dict[str, Any]] = {
         "place": {30: 29429, 10: 8667, 254: 4475, 255: 629},
         "outgoing": {255: 38116, 254: 4475, 0: 609},
         "sleep_depth": None,  # 사망 파일은 sleep_depth 전부 결측(None)
-        "aix_h_zero": 0.09, "aix_h_max": 685, "aix_h_mean": 164,
+        "aix_h_zero": 0.09,
+        "aix_h_max": 685,
+        "aix_h_mean": 164,
         "night_aix_env": (0.0, 15.0),
     },
     "평시": {  # 라벨 없음 → 응급의 비이벤트 기저(살아있고 활동하는 사람)에서 외삽
@@ -55,7 +89,9 @@ PROFILE: dict[str, dict[str, Any]] = {
         "place": {254: 15078, 0: 14222, 20: 8028, 1: 3301, 255: 2571},
         "outgoing": {255: 27593, 254: 15607},
         "sleep_depth": {0: 32363, 1: 3208, 2: 3116, 3: 117, 4: 4396},
-        "aix_h_zero": 0.40, "aix_h_max": 400, "aix_h_mean": 50,
+        "aix_h_zero": 0.40,
+        "aix_h_max": 400,
+        "aix_h_mean": 50,
         "night_aix_env": (0.0, 60.0),
     },
 }
@@ -84,7 +120,9 @@ def _longest_zero_run(arr: list[int]) -> int:
 # --------------------------------------------------------------------------- #
 # 분단위 배열 전개
 # --------------------------------------------------------------------------- #
-def _expand_aix1(rng: random.Random, activity: list[int], zero_frac: float) -> tuple[list[int], list[int]]:
+def _expand_aix1(
+    rng: random.Random, activity: list[int], zero_frac: float
+) -> tuple[list[int], list[int]]:
     """activity_by_hour(24, 0~3) 로 1440 aix_1 과 24 aix_h 를 만든다.
 
     비제로는 활동이 있는 시간대에 집중 → 응급 종반 야간활동 급등이 야간 aix 로 이어진다.
@@ -145,8 +183,13 @@ def _diurnal(rng: random.Random, env: dict, klass: str) -> tuple[list, list, lis
 # 하루 1행 전개
 # --------------------------------------------------------------------------- #
 def expand_day(
-    rng: random.Random, klass: str, persona: dict, day_obj: dict, records: dict,
-    recipient_id: str, lifeog_date: dt.date,
+    rng: random.Random,
+    klass: str,
+    persona: dict,
+    day_obj: dict,
+    records: dict,
+    recipient_id: str,
+    lifeog_date: dt.date,
 ) -> dict:
     prof = PROFILE[klass]
     d = day_obj["day"]
@@ -208,7 +251,9 @@ def expand_day(
         outgoing_count = 0 if out_n == 0 else round(_clamp(rng.gauss(6 * (1 - 0.4 * p), 2), 0, 9))
         # 수면 단편화(관측 재현): 정확히 0 인 날 ~40%, 단시간 ~45%, 드물게 장시간 ~15%
         u = rng.random()
-        total_sleep = 0.0 if u < 0.40 else (rng.uniform(18, 90) if u < 0.85 else rng.uniform(200, 662))
+        total_sleep = (
+            0.0 if u < 0.40 else (rng.uniform(18, 90) if u < 0.85 else rng.uniform(200, 662))
+        )
     else:  # 평시
         aix_d = _clamp(rng.gauss(50, 15), 10, 90)
         total_aix_sum = _clamp(rng.gauss(62, 6), 50, 75)
@@ -219,19 +264,31 @@ def expand_day(
 
     bath_time = round(bath_count * rng.uniform(8, 22), 1) if bath_count else 0.0
     out_time = round(outgoing_count * rng.uniform(20, 100), 1) if outgoing_count else 0.0
-    out_late = sum(1 for w in day_obj["outgoing_windows"] if w["start_min"] < 300 or w["start_min"] > 1320)
+    out_late = sum(
+        1 for w in day_obj["outgoing_windows"] if w["start_min"] < 300 or w["start_min"] > 1320
+    )
 
     row = {
         "source_type": prof["source_type"],
         "care_recipient_id": recipient_id,
-        "age": persona["age"], "sex": persona["sex"], "alone": "Y",
-        "vision": persona["vision"], "hearing": persona["hearing"], "dosage": persona["dosage"],
-        "district": persona["district"], "house_structure": persona["house_structure"],
-        "room_no": persona["room_no"], "bath_location": persona["bath_location"],
+        "age": persona["age"],
+        "sex": persona["sex"],
+        "alone": "Y",
+        "vision": persona["vision"],
+        "hearing": persona["hearing"],
+        "dosage": persona["dosage"],
+        "district": persona["district"],
+        "house_structure": persona["house_structure"],
+        "room_no": persona["room_no"],
+        "bath_location": persona["bath_location"],
         "lifeog_date": lifeog_date,
         "emergency_date": lifeog_date if (is_event_day and klass == "응급") else None,
-        "emergency_record": records["emergency_record"] if (is_event_day and klass == "응급") else None,
-        "occurrence_place": ("욕실" if "욕실" in (records["emergency_record"] or "") else "거실") if (is_event_day and klass == "응급") else None,
+        "emergency_record": records["emergency_record"]
+        if (is_event_day and klass == "응급")
+        else None,
+        "occurrence_place": ("욕실" if "욕실" in (records["emergency_record"] or "") else "거실")
+        if (is_event_day and klass == "응급")
+        else None,
         "on_site": "Y" if (is_event_day and klass == "응급") else None,
         "hospital_transfer": "Y" if (is_event_day and klass == "응급") else None,
         "hospital_treatment": "입원" if (is_event_day and klass == "응급") else None,
@@ -269,12 +326,15 @@ def expand_day(
         "outgoing_late_night_time_d": round(out_late * rng.uniform(10, 40), 1),
         "last_outgoing_time": (
             f"{day_obj['outgoing_windows'][-1]['end_min'] // 60:02d}:{day_obj['outgoing_windows'][-1]['end_min'] % 60:02d}"
-            if day_obj["outgoing_windows"] else None
+            if day_obj["outgoing_windows"]
+            else None
         ),
         "total_outgoing_average_time": round(rng.uniform(100, 200), 1) if outgoing_count else 0.0,
         "total_outgoing_average_count": round(rng.uniform(3, 12), 1) if outgoing_count else 0.0,
         # 환경
-        "temp_list": temp, "humi_list": humi, "illu_list": illu,
+        "temp_list": temp,
+        "humi_list": humi,
+        "illu_list": illu,
     }
     _validate_row(klass, row)
     return row
@@ -286,7 +346,11 @@ def expand_person(gen_obj: dict, recipient_id: str, start_date: dt.date, seed: i
     rows = []
     for day_obj in gen_obj["daily"]:
         lifeog = start_date + dt.timedelta(days=day_obj["day"] - 1)
-        rows.append(expand_day(rng, klass, gen_obj["persona"], day_obj, gen_obj["records"], recipient_id, lifeog))
+        rows.append(
+            expand_day(
+                rng, klass, gen_obj["persona"], day_obj, gen_obj["records"], recipient_id, lifeog
+            )
+        )
     return rows
 
 

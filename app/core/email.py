@@ -23,10 +23,11 @@ OUT_DIR = Path(__file__).resolve().parents[2] / "out" / "reports"
 DEFAULT_REPORT = "위험예측보고서_661.docx"
 
 
-def _resolve_report(report_name: str | None) -> Path:
+def resolve_report(report_name: str | None) -> Path:
     """보고서 파일 경로를 안전하게 해석한다.
 
     경로 탈출(`../`)을 차단하고, OUT_DIR 하위의 실제 파일만 허용한다.
+    이메일 발송과 PDF 조회 서빙(`routers/reports.py`)이 함께 사용한다.
     """
     name = report_name or DEFAULT_REPORT
     path = (OUT_DIR / name).resolve()
@@ -83,7 +84,7 @@ async def send_report_email(
     Returns:
         발송에 사용된 보고서 파일명.
     """
-    docx = _resolve_report(report_name)
+    docx = resolve_report(report_name)
     # 블로킹 변환은 스레드로 오프로드해 이벤트 루프를 막지 않는다.
     pdf = await anyio.to_thread.run_sync(docx_to_pdf, docx)
 

@@ -42,8 +42,35 @@ const API = {
     // 대시보드
     getDashboardSummary:  ()              => apiRequest('GET', '/dashboard/summary'),
     getActiveSituations:  (limit=50)      => apiRequest('GET', `/situations/active?limit=${limit}`),
-    listPatients:         (limit=100)     => apiRequest('GET', `/patients?limit=${limit}`),
+    listPatients:         (page=1, limit=200) => apiRequest('GET', `/patients?page=${page}&limit=${limit}`),
+    // 모든 페이지를 끝까지 받아 합친다 (대상자 100명 초과 시 누락 방지).
+    listAllPatients: async (pageSize=200) => {
+        const first = await API.listPatients(1, pageSize);
+        const totalPages = first.data.total_pages || 1;
+        if (totalPages <= 1) return first;
+        const rest = await Promise.all(
+            Array.from({ length: totalPages - 1 }, (_, i) =>
+                API.listPatients(i + 2, pageSize))
+        );
+        const patients = rest.reduce(
+            (acc, r) => acc.concat(r.data.patients),
+            [...first.data.patients]
+        );
+        return { ...first, data: { ...first.data, patients } };
+    },
     getPatientDetails:    (patientId)     => apiRequest('GET', `/patients/${patientId}/details`),
+
+    // 보고서
+    listReports:          (date=null)     => apiRequest('GET', `/reports${date ? `?date=${date}` : ''}`),
+
+    // 보고서 PDF — 인증 헤더가 필요해 blob 으로 받아 새 탭에 연다 (a href 로는 토큰 전달 불가).
+    openReportPdf: async (reportId) => {
+        const res = await fetch(`${API_BASE}/reports/${reportId}/file`, { headers: buildHeaders() });
+        if (!res.ok) throw { status: res.status };
+        const url = URL.createObjectURL(await res.blob());
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+    },
 
     // 조치 등록
     createAction: (situationId, actionType, actionNote, statusUpdate) =>
