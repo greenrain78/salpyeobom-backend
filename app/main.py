@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import close_db, init_db
@@ -75,6 +76,11 @@ def create_app() -> FastAPI:
     app.include_router(situations.router)
     app.include_router(patients.router)
     app.include_router(reports.router)
+
+    # ── 정적 프론트엔드 ───────────────────────────────────────
+    # /api/v1/* 는 위 라우터가 먼저 매칭하고, 나머지 경로(/, index.html,
+    # css/js)는 frontend/ 정적 파일로 서빙한다. 터널 1개로 전체 앱 공개 가능.
+    app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
     return app
 

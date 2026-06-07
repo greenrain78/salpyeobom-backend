@@ -2,10 +2,14 @@
  * 살펴봄 API 클라이언트
  */
 
-// 현재 접속한 호스트의 :8000 백엔드를 가리킨다.
-//   - 로컬 개발: http://localhost:3000 → http://localhost:8000/api/v1
-//   - 운영(kro.kr): http://salpyeobom.kro.kr → http://salpyeobom.kro.kr:8000/api/v1
-const API_BASE = `http://${location.hostname}:8000/api/v1`;
+// API 베이스 주소를 접속 환경에 따라 결정한다.
+//   - 로컬 개발(poe dev): localhost:3000 → 별도 백엔드 localhost:8000/api/v1
+//   - 터널/배포: 백엔드가 정적 프론트까지 같이 서빙하므로 같은 origin 사용
+//     (예: https://xxx.trycloudflare.com → https://xxx.trycloudflare.com/api/v1)
+const API_BASE =
+    location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+        ? `http://${location.hostname}:8000/api/v1`
+        : `${location.origin}/api/v1`;
 
 function getToken() {
     return sessionStorage.getItem('salpyobom_token');
